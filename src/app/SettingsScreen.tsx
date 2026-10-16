@@ -75,6 +75,12 @@ export function SettingsScreen({ onBack, onCategories, onRecurring }: { onBack: 
               <small className="muted block">{t('settings.exportHelp')}</small>
             </span>
           </button>
+          <button className="list-row" onClick={() => void store.exportZip()}>
+            <span>
+              {t('settings.exportZip')}
+              <small className="muted block">{t('settings.exportZipHelp')}</small>
+            </span>
+          </button>
           <button className="list-row" onClick={() => setOverlay('import')}>
             <span>
               {t('settings.import')}

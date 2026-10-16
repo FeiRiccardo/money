@@ -31,6 +31,7 @@
     "otherIncome": "Altro"
   },
   "home": {
+    "report": "Report mensile",
     "balance": "Saldo",
     "settings": "Impostazioni",
     "add": "Aggiungi una transazione",
@@ -54,6 +55,41 @@
     "incomeByCategory": "Entrate per categoria",
     "overlap": "Le categorie si sovrappongono: una transazione conta in ciascuna delle sue categorie, quindi queste righe sommano più del totale reale qui sopra.",
     "nothing": "Niente questo mese."
+  },
+  "charts": {
+    "title": "Grafici",
+    "open": "Grafici",
+    "pickMonth": "Scegli un mese",
+    "trend": "Entrate e uscite",
+    "range": "Intervallo",
+    "lastMonths": "{{count}} mesi",
+    "byCategory": "Per categoria",
+    "type": "Tipo",
+    "noData": "Niente da mostrare questo mese.",
+    "vsLastMonth": "Rispetto al mese scorso",
+    "same": "uguale",
+    "new": "nuova",
+    "other": "Altro"
+  },
+  "photos": {
+    "title": "Ricevute",
+    "add": "Aggiungi foto",
+    "remove": "Rimuovi foto",
+    "view": "Vedi foto",
+    "limit": "fino a {{count}}",
+    "unreadable": "Non è stato possibile leggere quella foto.",
+    "attached_one": "{{count}} foto allegata",
+    "attached_other": "{{count}} foto allegate"
+  },
+  "report": {
+    "title": "Report",
+    "print": "Stampa / Salva come PDF",
+    "heading": "Report mensile: {{month}}",
+    "generated": "Creato il {{date}}",
+    "startBalance": "Saldo iniziale",
+    "endBalance": "Saldo finale",
+    "transactions": "Transazioni",
+    "empty": "Nessuna transazione questo mese."
   },
   "form": {
     "titleAdd": "Nuova transazione",
@@ -100,6 +136,8 @@
     }
   },
   "settings": {
+    "exportZip": "Backup completo (ZIP)",
+    "exportZipHelp": "Un solo file con transazioni, categorie, ricorrenze, impostazioni e foto delle ricevute.",
     "title": "Impostazioni",
     "language": "Lingua",
     "english": "English",
@@ -154,6 +192,11 @@
     "startingPlaceholder": "0,00"
   },
   "import": {
+    "zip": {
+      "notAnArchive": "Quel file non è un backup ZIP.",
+      "missingFile": "Quel file ZIP non contiene un file delle transazioni e uno delle categorie."
+    },
+    "photosToImport": "Verranno importate {{count}} foto di ricevute.",
     "title": "Importa un backup",
     "chooseFiles": "Scegli i due file di backup",
     "chooseHelp": "Seleziona insieme i file delle transazioni e delle categorie. Il file delle ricorrenti è facoltativo.",
@@ -193,6 +236,7 @@
     "rulesToImport_other": "Verranno ripristinate anche {{count}} regole ricorrenti."
   },
   "export": {
+    "zipDone": "Backup salvato. Conserva il file ZIP fuori dal browser.",
     "shareTitle": "Backup di Money Tracker",
     "done": "Backup salvato. Conserva i file fuori dal browser."
   },

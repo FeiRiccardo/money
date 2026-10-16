@@ -31,6 +31,7 @@
     "otherIncome": "Other"
   },
   "home": {
+    "report": "Monthly report",
     "balance": "Balance",
     "settings": "Settings",
     "add": "Add a Transaction",
@@ -54,6 +55,41 @@
     "incomeByCategory": "Income by Category",
     "overlap": "Categories overlap: a Transaction counts in each of its Categories, so these lines add up to more than the real total above.",
     "nothing": "Nothing this month."
+  },
+  "charts": {
+    "title": "Charts",
+    "open": "Charts",
+    "pickMonth": "Pick a month",
+    "trend": "Income and expenses",
+    "range": "Time range",
+    "lastMonths": "{{count}} months",
+    "byCategory": "By Category",
+    "type": "Type",
+    "noData": "Nothing to chart this month.",
+    "vsLastMonth": "Compared with last month",
+    "same": "same",
+    "new": "new",
+    "other": "Other"
+  },
+  "photos": {
+    "title": "Receipts",
+    "add": "Add photo",
+    "remove": "Remove photo",
+    "view": "View photo",
+    "limit": "up to {{count}}",
+    "unreadable": "That photo could not be read.",
+    "attached_one": "{{count}} photo attached",
+    "attached_other": "{{count}} photos attached"
+  },
+  "report": {
+    "title": "Report",
+    "print": "Print / Save as PDF",
+    "heading": "Monthly report: {{month}}",
+    "generated": "Created on {{date}}",
+    "startBalance": "Balance at the start",
+    "endBalance": "Balance at the end",
+    "transactions": "Transactions",
+    "empty": "No Transactions this month."
   },
   "form": {
     "titleAdd": "New Transaction",
@@ -99,6 +135,8 @@
     }
   },
   "settings": {
+    "exportZip": "Full backup (ZIP)",
+    "exportZipHelp": "One file with Transactions, Categories, recurring rules, settings and receipt photos.",
     "title": "Settings",
     "language": "Language",
     "english": "English",
@@ -152,6 +190,11 @@
     "startingPlaceholder": "0.00"
   },
   "import": {
+    "zip": {
+      "notAnArchive": "That file is not a ZIP backup.",
+      "missingFile": "That ZIP does not contain a Transactions file and a Categories file."
+    },
+    "photosToImport": "{{count}} receipt photos will be imported.",
     "title": "Import a backup",
     "chooseFiles": "Choose the two backup files",
     "chooseHelp": "Select the Transactions and Categories files together. A Recurring file is optional.",
@@ -189,6 +232,7 @@
     "rulesToImport_other": "{{count}} recurring rules will also be restored."
   },
   "export": {
+    "zipDone": "Backup saved. Keep the ZIP somewhere outside the browser.",
     "shareTitle": "Money Tracker backup",
     "done": "Backup saved. Keep the files somewhere outside the browser."
   },

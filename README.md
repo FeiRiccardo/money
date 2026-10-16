@@ -1,6 +1,6 @@
 # Money Tracker
 
-A simple personal money and expense tracker for one person. It runs in the browser as an installable web app (PWA), keeps all data on the device, and backs up through two CSV files.
+A simple personal money and expense tracker for one person. It runs in the browser as an installable web app (PWA), keeps all data on the device, and backs up through CSV files or one full ZIP (with settings and receipt photos). It also has charts, receipt photos and a printable monthly report.
 
 **Open the app: https://feiriccardo.github.io/money-tracker/**
 
@@ -27,7 +27,7 @@ npm run test:e2e                  # browser tests (Playwright; builds and serves
 
 ## Layout
 
-- `src/domain/` pure rules, no browser APIs: amount parsing, Category name rules, month summary, search/filter/sort, recurring schedules, CSV backup, reminders. Tested at their public interfaces.
+- `src/domain/` pure rules, no browser APIs: amount parsing, Category name rules, month summary, search/filter/sort, recurring schedules, CSV and ZIP backup, chart data, the monthly report, reminders. Tested at their public interfaces.
 - `src/data/ledger.ts` the one data-access module over IndexedDB (`idb`). Tested against `fake-indexeddb`.
 - `src/app/` React screens and the store that wraps the Ledger.
 - `src/i18n/` English and Italian strings (starter Category names are translated while they are still defaults).

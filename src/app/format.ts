@@ -20,10 +20,7 @@ export function todayISO(now: Date = new Date()): string {
 
 export const monthOf = (date: string): string => date.slice(0, 7);
 
-export function shiftMonth(month: string, delta: number): string {
-  const total = Number(month.slice(0, 4)) * 12 + (Number(month.slice(5)) - 1) + delta;
-  return `${Math.floor(total / 12)}-${pad((total % 12) + 1)}`;
-}
+export { shiftMonth } from '../domain/months';
 
 export function monthLabel(month: string, language: Language): string {
   const date = new Date(Number(month.slice(0, 4)), Number(month.slice(5)) - 1, 1);

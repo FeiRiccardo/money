@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { openLedger, type CategoryResult, type Ledger, type RuleInput, type TransactionInput } from '../data/ledger';
+import type { ArchiveSettings, PhotoFile } from '../domain/archive';
 import { BACKUP_DISMISS_MS, INSTALL_DISMISS_MS } from '../domain/reminders';
 import {
   EMPTY_TOASTS,
@@ -15,6 +16,8 @@ import {
 } from '../domain/toasts';
 import {
   DEFAULT_SETTINGS,
+  type Attachment,
+  type AttachmentInput,
   type Category,
   type Frequency,
   type Language,
@@ -26,12 +29,24 @@ import {
 } from '../domain/types';
 import i18n, { categoryName, setLanguage as applyLanguage } from '../i18n';
 import { formatMoney, todayISO } from './format';
-import { exportFiles, requestPersistence } from './platform';
+import { exportArchiveFile, exportFiles, requestPersistence } from './platform';
 
 /** "Repeat" chosen on a Transaction: it becomes the first occurrence of a new rule. */
 export interface Repeat {
   frequency: Frequency;
   endDate: string | null;
+}
+
+/** Photo changes made in the Transaction form, applied when it is saved. */
+export interface PhotoChanges {
+  added: AttachmentInput[];
+  removedIds: string[];
+}
+
+/** What a ZIP import brings besides the Transactions, Categories and rules. */
+export interface ImportExtras {
+  settings: Partial<ArchiveSettings>;
+  photos: Map<string, PhotoFile[]>;
 }
 
 export interface Store {
@@ -43,6 +58,9 @@ export interface Store {
   rules: RecurringRule[];
   settings: Settings;
   language: Language;
+  /** How many receipt photos each Transaction has (Transactions with none are left out). */
+  photoCounts: Record<string, number>;
+  attachmentsOf: (transactionId: string) => Promise<Attachment[]>;
   /** Toast messages on screen, oldest first (at most three). */
   toasts: ToastItem[];
   notify: (toast: ToastInput) => void;
@@ -55,8 +73,8 @@ export interface Store {
   /** True right after an import: the opening balance is not in the backup, so ask the user to check it. */
   openingCheck: boolean;
   dismissOpeningCheck: () => void;
-  addTransaction: (input: TransactionInput, repeat?: Repeat) => Promise<boolean>;
-  updateTransaction: (id: string, input: TransactionInput, repeat?: Repeat) => Promise<boolean>;
+  addTransaction: (input: TransactionInput, repeat?: Repeat, photos?: PhotoChanges) => Promise<boolean>;
+  updateTransaction: (id: string, input: TransactionInput, repeat?: Repeat, photos?: PhotoChanges) => Promise<boolean>;
   deleteTransaction: (id: string) => Promise<void>;
   updateRule: (id: string, input: RuleInput) => Promise<boolean>;
   stopRule: (id: string) => Promise<void>;
@@ -67,9 +85,11 @@ export interface Store {
   setOpeningBalance: (cents: number) => Promise<void>;
   setSortOrder: (order: SortOrder) => Promise<void>;
   startFresh: (openingCents: number) => Promise<void>;
-  applyImport: (data: LedgerData, rules: RecurringRule[]) => Promise<void>;
+  applyImport: (data: LedgerData, rules: RecurringRule[], extras?: ImportExtras) => Promise<void>;
   eraseAll: () => Promise<void>;
   exportBackup: () => Promise<boolean>;
+  /** One ZIP with the CSV data, the settings and the receipt photos. */
+  exportZip: () => Promise<boolean>;
   dismissBanner: (kind: 'backup' | 'install') => Promise<void>;
 }
 
@@ -97,6 +117,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [waitingForOtherCopy, setWaitingForOtherCopy] = useState(false);
   const [data, setData] = useState<LedgerData>(EMPTY);
   const [rules, setRules] = useState<RecurringRule[]>([]);
+  const [photoCounts, setPhotoCounts] = useState<Record<string, number>>({});
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [queue, setQueue] = useState<ToastState>(EMPTY_TOASTS);
   const [saveFailed, setSaveFailed] = useState(false);
@@ -106,6 +127,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const loaded = await ledgerRef.current!.load();
     setData(loaded.data);
     setRules(loaded.rules);
+    setPhotoCounts(await ledgerRef.current!.attachmentCounts());
     setSettings(loaded.settings);
     applyLanguage(loaded.settings.language);
   }, []);
@@ -117,6 +139,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (cancelled) return;
         setWaitingForOtherCopy(false);
         ledgerRef.current = ledger;
+        // Photos of Transactions deleted in an earlier session can no longer be undone, so they go now.
+        await ledger.purgeOrphanAttachments();
         await refresh();
         setReady(true);
       })
@@ -223,6 +247,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       rules,
       settings,
       language: settings.language,
+      photoCounts,
+      attachmentsOf: (transactionId) => ledgerRef.current!.attachmentsOf(transactionId),
       toasts: queue.items,
       notify,
       dismissToast,
@@ -233,9 +259,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       openingCheck,
       dismissOpeningCheck: () => setOpeningCheck(false),
 
-      async addTransaction(input, repeat) {
+      async addTransaction(input, repeat, photos) {
         const result = await write(async (l) => {
           const saved = await l.addTransaction(input);
+          for (const photo of photos?.added ?? []) await l.addAttachment(saved.id, photo);
           if (repeat) await l.createRuleFromTransaction(saved.id, repeat);
           return saved;
         });
@@ -254,10 +281,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         await refresh();
         return true;
       },
-      async updateTransaction(id, input, repeat) {
+      async updateTransaction(id, input, repeat, photos) {
         const original = data.transactions.find((t) => t.id === id);
         const result = await write(async (l) => {
           await l.updateTransaction(id, input);
+          for (const photoId of photos?.removedIds ?? []) await l.removeAttachment(photoId);
+          for (const photo of photos?.added ?? []) await l.addAttachment(id, photo);
           if (repeat) await l.createRuleFromTransaction(id, repeat);
         });
         if (!result.ok) return false;
@@ -340,12 +369,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         });
       },
 
-      async applyImport(imported, importedRules) {
+      async applyImport(imported, importedRules, extras) {
         const before = await ledgerRef.current!.load();
-        const result = await write((l) => l.replaceAll(imported, importedRules));
+        const beforePhotos = await ledgerRef.current!.allAttachments();
+        const photos = [...(extras?.photos ?? new Map<string, PhotoFile[]>())].flatMap(([transactionId, files]) =>
+          files.map((f) => ({ transactionId, mime: f.mime, data: f.bytes.slice().buffer as ArrayBuffer })),
+        );
+        const result = await write(async (l) => {
+          await l.replaceAll(imported, importedRules, photos);
+          if (extras && Object.keys(extras.settings).length > 0) await l.updateSettings(extras.settings);
+        });
         if (!result.ok) return;
+        if (extras?.settings.language) applyLanguage(extras.settings.language);
         await runRecurring(true);
-        setOpeningCheck(true);
+        // The opening balance is only in question when the backup did not carry it.
+        setOpeningCheck(extras?.settings.openingCents === undefined);
         notify({
           kind: 'success',
           message: i18n.t('import.done'),
@@ -353,7 +391,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           onAction: () => {
             setOpeningCheck(false);
             void write(async (l) => {
-              await l.replaceAll(before.data, before.rules);
+              await l.replaceAll(before.data, before.rules, beforePhotos);
               await l.updateSettings(before.settings);
             });
           },
@@ -380,6 +418,28 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }
       },
 
+      async exportZip() {
+        try {
+          const ledger = ledgerRef.current!;
+          const attachments = new Map<string, PhotoFile[]>();
+          for (const a of await ledger.allAttachments()) {
+            attachments.set(a.transactionId, [...(attachments.get(a.transactionId) ?? []), { mime: a.mime, bytes: new Uint8Array(a.data) }]);
+          }
+          const { language, openingCents, sortOrder } = settings;
+          const shared = await exportArchiveFile(
+            { data, rules, settings: { language, openingCents, sortOrder }, attachments },
+            i18n.t('export.shareTitle'),
+          );
+          if (!shared) return false;
+          await write((l) => l.updateSettings({ lastBackupAt: Date.now(), changesSinceBackup: 0 }));
+          notify({ kind: 'success', message: i18n.t('export.zipDone') });
+          return true;
+        } catch {
+          notify({ kind: 'error', message: i18n.t('toast.exportFailed') });
+          return false;
+        }
+      },
+
       async dismissBanner(kind) {
         const patch =
           kind === 'backup'
@@ -388,7 +448,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         await write((l) => l.updateSettings(patch));
       },
     };
-  }, [ready, storageError, waitingForOtherCopy, data, rules, settings, queue.items, notify, dismissToast, pauseToast, resumeToast, saveFailed, openingCheck, write, refresh, runRecurring]);
+  }, [ready, storageError, waitingForOtherCopy, data, rules, photoCounts, settings, queue.items, notify, dismissToast, pauseToast, resumeToast, saveFailed, openingCheck, write, refresh, runRecurring]);
 
   return <StoreContext.Provider value={store}>{children}</StoreContext.Provider>;
 }

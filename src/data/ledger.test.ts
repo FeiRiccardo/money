@@ -575,3 +575,132 @@ describe('undoing an add', () => {
     expect((await ledger.load()).settings.changesSinceBackup).toBe(before.settings.changesSinceBackup);
   });
 });
+
+describe('receipt photos', () => {
+  const photo = (...bytes: number[]) => ({ mime: 'image/jpeg', data: new Uint8Array(bytes).buffer });
+  const bytesOf = (a: { data: ArrayBuffer }) => [...new Uint8Array(a.data)];
+
+  it('keeps photos attached to their Transaction, in the order they were added, after reopening', async () => {
+    const name = freshName();
+    const first = await openLedger(name, nameOf);
+    await first.seedStarterCategories();
+    const groceries = (await first.load()).data.categories.find((c) => c.defaultKey === 'groceries')!;
+    const a = await first.addTransaction({ date: '2026-10-17', type: 'expense', cents: 100, categoryIds: [groceries.id], retired: [], note: 'a' });
+    const b = await first.addTransaction({ date: '2026-10-18', type: 'expense', cents: 200, categoryIds: [groceries.id], retired: [], note: 'b' });
+
+    await first.addAttachment(a.id, photo(1));
+    await first.addAttachment(a.id, photo(2));
+    await first.addAttachment(b.id, photo(3));
+    first.close();
+
+    const second = await openLedger(name, nameOf);
+    expect((await second.attachmentsOf(a.id)).map(bytesOf)).toEqual([[1], [2]]);
+    expect((await second.attachmentsOf(b.id)).map(bytesOf)).toEqual([[3]]);
+    expect(await second.attachmentCounts()).toEqual({ [a.id]: 2, [b.id]: 1 });
+  });
+
+  it('counts adding and removing a photo as changes since the last backup', async () => {
+    const { ledger, saved } = await ledgerWithOneTransaction();
+    const base = (await ledger.load()).settings.changesSinceBackup;
+
+    const added = await ledger.addAttachment(saved.id, photo(1));
+    expect((await ledger.load()).settings.changesSinceBackup).toBe(base + 1);
+
+    await ledger.removeAttachment(added.id);
+    expect((await ledger.load()).settings.changesSinceBackup).toBe(base + 2);
+  });
+
+  it('removes a photo, and restoring the snapshot brings it back with the same id and the change count back', async () => {
+    const { ledger, saved } = await ledgerWithOneTransaction();
+    const added = await ledger.addAttachment(saved.id, photo(7, 8));
+    const base = (await ledger.load()).settings.changesSinceBackup;
+
+    const snapshot = await ledger.removeAttachment(added.id);
+    expect(await ledger.attachmentsOf(saved.id)).toEqual([]);
+
+    await ledger.restoreAttachment(snapshot);
+    const [back] = await ledger.attachmentsOf(saved.id);
+    expect(back.id).toBe(added.id);
+    expect(bytesOf(back)).toEqual([7, 8]);
+    expect((await ledger.load()).settings.changesSinceBackup).toBe(base);
+  });
+});
+
+describe('receipt photos: cleanup, import and erase', () => {
+  const photo = (...bytes: number[]) => ({ mime: 'image/jpeg', data: new Uint8Array(bytes).buffer });
+  const bytesOf = (a: { data: ArrayBuffer }) => [...new Uint8Array(a.data)];
+
+  it('keeps the photos of a deleted Transaction until it is purged, so Undo still has them', async () => {
+    const { ledger, saved } = await ledgerWithOneTransaction();
+    await ledger.addAttachment(saved.id, photo(1));
+
+    const snapshot = await ledger.deleteTransaction(saved.id);
+    expect((await ledger.attachmentsOf(saved.id)).length).toBe(1);
+
+    await ledger.restoreTransaction(snapshot);
+    await ledger.purgeOrphanAttachments();
+    expect((await ledger.attachmentsOf(saved.id)).length).toBe(1);
+
+    await ledger.deleteTransaction(saved.id);
+    await ledger.purgeOrphanAttachments();
+    expect(await ledger.attachmentCounts()).toEqual({});
+  });
+
+  it('lists every photo, for the ZIP backup', async () => {
+    const { ledger, saved } = await ledgerWithOneTransaction();
+    await ledger.addAttachment(saved.id, photo(1));
+    await ledger.addAttachment(saved.id, photo(2));
+
+    expect((await ledger.allAttachments()).map(bytesOf)).toEqual([[1], [2]]);
+  });
+
+  it('replaceAll swaps the photos for the imported ones, and passing the old ones back undoes it', async () => {
+    const { ledger, saved } = await ledgerWithOneTransaction();
+    await ledger.addAttachment(saved.id, photo(1));
+    const before = await ledger.load();
+    const oldPhotos = await ledger.allAttachments();
+    const imported = {
+      categories: before.data.categories,
+      transactions: [{ ...saved, id: 'imported-1' }],
+    };
+
+    await ledger.replaceAll(imported, [], [{ transactionId: 'imported-1', ...photo(9) }]);
+    expect(await ledger.attachmentCounts()).toEqual({ 'imported-1': 1 });
+    expect(bytesOf((await ledger.attachmentsOf('imported-1'))[0])).toEqual([9]);
+
+    await ledger.replaceAll(before.data, before.rules, oldPhotos);
+    expect(await ledger.attachmentCounts()).toEqual({ [saved.id]: 1 });
+  });
+
+  it('replaceAll without photos removes the existing ones, and eraseAll removes them too', async () => {
+    const { ledger, saved } = await ledgerWithOneTransaction();
+    await ledger.addAttachment(saved.id, photo(1));
+    const { data } = await ledger.load();
+
+    await ledger.replaceAll(data);
+    expect(await ledger.attachmentCounts()).toEqual({});
+
+    await ledger.addAttachment(saved.id, photo(2));
+    await ledger.eraseAll();
+    expect(await ledger.allAttachments()).toEqual([]);
+  });
+
+  it('upgrades a database made before photos existed without losing anything', async () => {
+    const name = freshName();
+    const old = await openDB(name, 2, {
+      upgrade(db) {
+        db.createObjectStore('categories', { keyPath: 'id' });
+        db.createObjectStore('transactions', { keyPath: 'id' });
+        db.createObjectStore('meta');
+        db.createObjectStore('rules', { keyPath: 'id' });
+      },
+    });
+    await old.put('categories', { id: 'c1', type: 'expense', name: 'Food', lastUsedAt: 0 });
+    old.close();
+
+    const ledger = await openLedger(name, nameOf);
+
+    expect((await ledger.load()).data.categories.map((c) => c.name)).toEqual(['Food']);
+    expect(await ledger.attachmentCounts()).toEqual({});
+  });
+});

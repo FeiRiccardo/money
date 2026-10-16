@@ -18,7 +18,8 @@ export function categoryChips(tx: Transaction, data: LedgerData) {
 /** One Transaction in a list. `showDate` adds the date (used when the list is not grouped by day). */
 export function TransactionRow({ tx, onOpen, showDate = false }: { tx: Transaction; onOpen: (tx: Transaction) => void; showDate?: boolean }) {
   const { t } = useTranslation();
-  const { data, language } = useStore();
+  const { data, language, photoCounts } = useStore();
+  const photos = photoCounts[tx.id] ?? 0;
   const chips = categoryChips(tx, data);
   return (
     <button className="tx-row" onClick={() => onOpen(tx)}>
@@ -30,6 +31,12 @@ export function TransactionRow({ tx, onOpen, showDate = false }: { tx: Transacti
             </span>
           )}
           {tx.note || chips[0]?.name}
+          {photos > 0 && (
+            <span className="photo-mark" role="img" aria-label={t('photos.attached', { count: photos })} title={t('photos.attached', { count: photos })}>
+              {' '}
+              📎
+            </span>
+          )}
         </div>
         {showDate && <div className="muted small">{dayLabel(tx.date, language)} {tx.date.slice(0, 4)}</div>}
         <div className="tags">

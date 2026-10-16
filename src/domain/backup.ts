@@ -21,6 +21,11 @@ export interface BackupFiles {
 
 const RECURRING_HEADER = 'type,amount,categories,note,frequency,start_date,end_date,next_date';
 
+/** The order Transactions are written to transactions.csv, and so the order of its rows. */
+export function exportOrder(data: LedgerData): Transaction[] {
+  return [...data.transactions].sort((a, b) => a.date.localeCompare(b.date) || (a.createdAt ?? 0) - (b.createdAt ?? 0));
+}
+
 export function exportBackup(
   data: LedgerData,
   nameOf: (category: Category) => string,
@@ -36,10 +41,7 @@ export function exportBackup(
       ...retired,
     ].join('|');
 
-  const ordered = [...data.transactions].sort(
-    (a, b) => a.date.localeCompare(b.date) || (a.createdAt ?? 0) - (b.createdAt ?? 0),
-  );
-  const rows = ordered.map((t) =>
+  const rows = exportOrder(data).map((t) =>
     [t.date, t.type, formatCents(t.cents), namesOf(t.categoryIds, t.retired), t.note].map(field).join(','),
   );
   const transactionsCsv = BOM + ['date,type,amount,categories,note', ...rows].join(EOL) + EOL;
@@ -104,6 +106,8 @@ export type ImportErrorReason =
 export interface ImportPreview {
   data: LedgerData;
   rules: RecurringRule[];
+  /** The row of transactions.csv each imported Transaction came from, in the same order as `data.transactions`. */
+  transactionRows: number[];
   errors: Array<{ file: 'transactions' | 'categories' | 'recurring'; row: number; reason: ImportErrorReason }>;
   /** Set when a file's header is wrong; nothing is imported. */
   fatal?: 'transactionsColumns' | 'categoriesColumns' | 'recurringColumns';
@@ -125,17 +129,17 @@ export function previewImport(files: BackupFiles, newId: () => string = () => cr
   const empty: LedgerData = { categories: [], transactions: [] };
   const transactionRows = parseCsv(files.transactionsCsv);
   if (transactionRows[0]?.join(',') !== TRANSACTION_HEADER.join(',')) {
-    return { data: empty, rules: [], errors: [], fatal: 'transactionsColumns' };
+    return { data: empty, rules: [], transactionRows: [], errors: [], fatal: 'transactionsColumns' };
   }
 
   const categoryRows = parseCsv(files.categoriesCsv);
   if (categoryRows[0]?.join(',') !== CATEGORY_HEADER.join(',')) {
-    return { data: empty, rules: [], errors: [], fatal: 'categoriesColumns' };
+    return { data: empty, rules: [], transactionRows: [], errors: [], fatal: 'categoriesColumns' };
   }
 
   const recurringRows = files.recurringCsv ? parseCsv(files.recurringCsv) : [];
   if (recurringRows.length > 0 && recurringRows[0]?.join(',') !== RECURRING_HEADER) {
-    return { data: empty, rules: [], errors: [], fatal: 'recurringColumns' };
+    return { data: empty, rules: [], transactionRows: [], errors: [], fatal: 'recurringColumns' };
   }
 
   const errors: ImportPreview['errors'] = [];
@@ -158,6 +162,7 @@ export function previewImport(files: BackupFiles, newId: () => string = () => cr
   const idByName = new Map(categories.map((c) => [`${c.type}:${fold(c.name)}`, c.id]));
 
   const transactions: Transaction[] = [];
+  const importedRows: number[] = [];
   transactionRows.slice(1).forEach(([date, type, amount, names, note], index) => {
     const row = index + 2;
     const fail = (reason: ImportErrorReason) => errors.push({ file: 'transactions', row, reason });
@@ -174,6 +179,7 @@ export function previewImport(files: BackupFiles, newId: () => string = () => cr
     }
     if (categoryIds.length + retired.length === 0) return fail('noCategories');
     transactions.push({ id: newId(), date, type, cents, categoryIds, retired, note: note ?? '', createdAt: transactions.length });
+    importedRows.push(row);
   });
 
   const rules: RecurringRule[] = [];
@@ -201,5 +207,5 @@ export function previewImport(files: BackupFiles, newId: () => string = () => cr
     });
   });
 
-  return { data: { categories, transactions }, rules, errors };
+  return { data: { categories, transactions }, rules, transactionRows: importedRows, errors };
 }

@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { importArchive } from '../domain/archive';
 import { previewImport, type ImportPreview } from '../domain/backup';
-import { useStore } from './store';
+import { useStore, type ImportExtras } from './store';
 import { Dialog } from './ui';
 
 const stripBom = (text: string) => (text.startsWith('﻿') ? text.slice(1) : text);
@@ -29,11 +30,32 @@ export function ImportFlow({ onClose }: { onClose: () => void }) {
   const [problem, setProblem] = useState<string | null>(null);
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [busy, setBusy] = useState(false);
+  /** Set when the chosen file was a ZIP: its settings and photos come along. */
+  const [extras, setExtras] = useState<ImportExtras | null>(null);
 
   async function choose(files: FileList | null) {
     setProblem(null);
     setPreview(null);
+    setExtras(null);
     if (!files || files.length === 0) return;
+    const zip = [...files].find((file) => /\.zip$/i.test(file.name));
+    if (zip) {
+      let bytes: Uint8Array;
+      try {
+        bytes = new Uint8Array(await zip.arrayBuffer());
+      } catch {
+        setProblem(t('import.unreadable'));
+        return;
+      }
+      const archive = importArchive(bytes);
+      if (!archive.ok) setProblem(t(`import.zip.${archive.reason}`));
+      else if (archive.preview.fatal) setProblem(t(`import.fatal.${archive.preview.fatal}`));
+      else {
+        setPreview(archive.preview);
+        setExtras({ settings: archive.settings, photos: archive.attachments });
+      }
+      return;
+    }
     let texts: string[];
     try {
       texts = await Promise.all([...files].map((file) => file.text()));
@@ -54,7 +76,7 @@ export function ImportFlow({ onClose }: { onClose: () => void }) {
   async function confirm() {
     if (!preview) return;
     setBusy(true);
-    await store.applyImport(preview.data, preview.rules);
+    await store.applyImport(preview.data, preview.rules, extras ?? undefined);
     setBusy(false);
     onClose();
   }
@@ -67,7 +89,7 @@ export function ImportFlow({ onClose }: { onClose: () => void }) {
         <span>{t('import.chooseFiles')}</span>
         <input
           type="file"
-          accept=".csv,text/csv"
+          accept=".csv,text/csv,.zip,application/zip"
           multiple
           data-testid="import-files"
           onChange={(e) => void choose(e.target.files)}
@@ -86,6 +108,9 @@ export function ImportFlow({ onClose }: { onClose: () => void }) {
             })}
           </p>
           {preview.rules.length > 0 && <p>{t('import.rulesToImport', { count: preview.rules.length })}</p>}
+          {extras && extras.photos.size > 0 && (
+            <p>{t('import.photosToImport', { count: [...extras.photos.values()].reduce((n, files) => n + files.length, 0) })}</p>
+          )}
           {preview.errors.length > 0 && (
             <>
               <h3>{t('import.errorsTitle', { count: preview.errors.length })}</h3>

@@ -17,9 +17,11 @@ interface HomeProps {
   onEdit: (t: Transaction) => void;
   onSettings: () => void;
   onSearch: () => void;
+  onCharts: (month: string) => void;
+  onReport: (month: string) => void;
 }
 
-export function Home({ onAdd, onEdit, onSettings, onSearch }: HomeProps) {
+export function Home({ onAdd, onEdit, onSettings, onSearch, onCharts, onReport }: HomeProps) {
   const { t } = useTranslation();
   const store = useStore();
   const { data, settings, language } = store;
@@ -76,6 +78,11 @@ export function Home({ onAdd, onEdit, onSettings, onSearch }: HomeProps) {
           <div className="head-actions">
             <button className="icon-btn" aria-label={t('home.search')} onClick={onSearch}>
               ⌕
+            </button>
+            <button className="icon-btn" aria-label={t('charts.open')} onClick={() => onCharts(month)}>
+              <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+                <path d="M5 20V10M12 20V4M19 20v-7" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+              </svg>
             </button>
             <button className="icon-btn" aria-label={t('home.settings')} onClick={onSettings}>
               ⚙
@@ -180,6 +187,9 @@ export function Home({ onAdd, onEdit, onSettings, onSearch }: HomeProps) {
                 <h3>{t('summary.incomeByCategory')}</h3>
                 <Lines lines={summary.incomeLines} money={money} />
                 <p className="muted small">{t('summary.overlap')}</p>
+                <button className="btn wide" onClick={() => onReport(month)}>
+                  {t('home.report')}
+                </button>
               </>
             )}
           </div>

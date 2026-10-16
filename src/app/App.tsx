@@ -2,17 +2,19 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Transaction } from '../domain/types';
 import { CategoriesScreen } from './CategoriesScreen';
+import { ChartsScreen } from './ChartsScreen';
 import { FirstRun } from './FirstRun';
 import { Home } from './Home';
 import { OpeningBalanceDialog } from './OpeningBalanceDialog';
 import { RecurringScreen } from './RecurringScreen';
+import { ReportScreen } from './ReportScreen';
 import { SearchScreen } from './SearchScreen';
 import { SettingsScreen } from './SettingsScreen';
 import { useStore } from './store';
 import { TransactionForm, type Prefill } from './TransactionForm';
 import { SaveFailedDialog, ToastView } from './ui';
 
-type Screen = 'home' | 'settings' | 'categories' | 'recurring' | 'search';
+type Screen = 'home' | 'settings' | 'categories' | 'recurring' | 'search' | 'charts' | 'report';
 
 interface FormState {
   transaction?: Transaction;
@@ -23,6 +25,8 @@ interface FormState {
 
 function Shell() {
   const [screen, setScreen] = useState<Screen>('home');
+  const [chartMonth, setChartMonth] = useState('');
+  const [reportMonth, setReportMonth] = useState('');
   const [form, setForm] = useState<FormState | null>(null);
   const open = (next: Omit<FormState, 'key'>) => setForm((current) => ({ ...next, key: (current?.key ?? 0) + 1 }));
 
@@ -34,8 +38,18 @@ function Shell() {
           onEdit={(transaction) => open({ transaction })}
           onSettings={() => setScreen('settings')}
           onSearch={() => setScreen('search')}
+          onReport={(month) => {
+            setReportMonth(month);
+            setScreen('report');
+          }}
+          onCharts={(month) => {
+            setChartMonth(month);
+            setScreen('charts');
+          }}
         />
       )}
+      {screen === 'report' && <ReportScreen month={reportMonth} onBack={() => setScreen('home')} />}
+      {screen === 'charts' && <ChartsScreen initialMonth={chartMonth} onBack={() => setScreen('home')} />}
       {screen === 'search' && <SearchScreen onBack={() => setScreen('home')} onEdit={(transaction) => open({ transaction })} />}
       {screen === 'settings' && (
         <SettingsScreen

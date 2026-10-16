@@ -5,6 +5,7 @@ import { sortTransactions } from '../domain/search';
 import type { Frequency, Transaction, TxType } from '../domain/types';
 import { categoryName } from '../i18n';
 import { centsToInput, formatMoney, todayISO } from './format';
+import { NO_PHOTO_CHANGES, PhotoSection, type PhotoDraft } from './PhotoSection';
 import { frequencyLabel, RuleDialog } from './RecurringScreen';
 import { useStore } from './store';
 import { Dialog } from './ui';
@@ -50,6 +51,7 @@ export function TransactionForm({ transaction, prefill, onClose, onDuplicate }: 
   const [repeatEnd, setRepeatEnd] = useState('');
   const [editingRule, setEditingRule] = useState(false);
   const [stopping, setStopping] = useState(false);
+  const [photos, setPhotos] = useState<PhotoDraft>(NO_PHOTO_CHANGES);
 
   const rule = transaction?.ruleId ? store.rules.find((r) => r.id === transaction.ruleId) : undefined;
   const cents = parseAmount(amount);
@@ -122,9 +124,10 @@ export function TransactionForm({ transaction, prefill, onClose, onDuplicate }: 
     setSaving(true);
     const input = { date, type, cents, categoryIds: selected, retired, note: note.trim() };
     const schedule = !rule && repeat !== 'never' ? { frequency: repeat, endDate: repeatEnd === '' ? null : repeatEnd } : undefined;
+    const changes = { added: photos.added.map((a) => a.input), removedIds: photos.removedIds };
     const ok = editing
-      ? await store.updateTransaction(transaction.id, input, schedule)
-      : await store.addTransaction(input, schedule);
+      ? await store.updateTransaction(transaction.id, input, schedule, changes)
+      : await store.addTransaction(input, schedule, changes);
     setSaving(false);
     if (ok) onClose();
   }
@@ -286,6 +289,8 @@ export function TransactionForm({ transaction, prefill, onClose, onDuplicate }: 
             </>
           )}
         </div>
+
+        <PhotoSection transactionId={transaction?.id} draft={photos} onChange={setPhotos} />
       </div>
 
       <div className="form-foot">

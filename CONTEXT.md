@@ -39,3 +39,11 @@ _Avoid_: Starting balance, initial amount
 **Currency**:
 The single unit of money all data is expressed in. Fixed to EUR in v1.
 _Avoid_: Money unit
+
+**Receipt photo**:
+An image kept with one Transaction as proof of it (up to 5 per Transaction). It is shrunk when added and stays on the device.
+_Avoid_: Attachment, receipt scan, image
+
+**Full backup**:
+One ZIP file with everything the CSV backup has plus the settings and the Receipt photos.
+_Avoid_: Archive, export all

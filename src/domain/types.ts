@@ -47,6 +47,19 @@ export interface RecurringRule {
   nextDate: string;
 }
 
+/** A receipt photo kept with a Transaction. */
+export interface Attachment {
+  id: string;
+  transactionId: string;
+  mime: string;
+  data: ArrayBuffer;
+  /** Orders the photos of one Transaction. */
+  addedAt: number;
+}
+
+/** What is needed to add a photo; the ledger fills in the rest. */
+export type AttachmentInput = Pick<Attachment, 'mime' | 'data'>;
+
 export interface LedgerData {
   categories: Category[];
   transactions: Transaction[];

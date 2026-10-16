@@ -1,3 +1,4 @@
+import { exportArchive, type ArchiveContent } from '../domain/archive';
 import { exportBackup, type BackupFiles } from '../domain/backup';
 import type { LedgerData, RecurringRule } from '../domain/types';
 import { categoryName } from '../i18n';
@@ -76,6 +77,22 @@ export async function exportFiles(data: LedgerData, rules: RecurringRule[], shar
     }
   }
   list.forEach(download);
+  return true;
+}
+
+/** Hands the user one ZIP file with everything, through the share sheet or as a download. Returns false if dismissed. */
+export async function exportArchiveFile(content: ArchiveContent, shareTitle: string): Promise<boolean> {
+  const bytes = exportArchive(content, categoryName);
+  const file = new File([bytes as BlobPart], `money-backup-${stamp(new Date())}.zip`, { type: 'application/zip' });
+  if (navigator.canShare?.({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: shareTitle });
+      return true;
+    } catch (error) {
+      if ((error as DOMException).name === 'AbortError') return false;
+    }
+  }
+  download(file);
   return true;
 }
 

@@ -15,14 +15,15 @@ This spec is compiled from the Wayfinder map in `.wayfinder/`. Every section nam
 - Recurring Transactions (weekly, monthly or yearly), created automatically when the app opens.
 - Quick entry helpers: Duplicate a Transaction, and a Recent strip in the add form.
 - Local-only storage on the device, with CSV export and import.
+- Charts, receipt photos, a printable monthly report and a full ZIP backup (see [section 13](#13-additions-after-v1)).
 - One Currency, EUR. English and Italian UI, selectable.
 
 **Out of scope for v1**
 - Sync, accounts, bank connections, receipt scanning or OCR.
-- Budgets and charts.
+- Budgets.
 - Multiple accounts or wallets, multiple Currencies, shared or household use.
 - Sub-categories and merging Categories.
-- Merge-style import, JSON or ZIP backup, and settings inside the backup.
+- Merge-style import.
 
 ## 2. Domain model
 
@@ -190,7 +191,7 @@ Source tickets: *Home screen prototype*; premises in `.wayfinder/map.md`.
 
 ## 6. Import and export
 
-Two CSV files, plus a third when there are recurring rules, in a fixed dialect whatever the UI language: comma delimiter, dot decimal, UTF-8 (with a byte-order mark so spreadsheets read accents), dates as ISO `YYYY-MM-DD`. No JSON, no ZIP. Source ticket: *Import and export rules*.
+Two CSV files, plus a third when there are recurring rules, in a fixed dialect whatever the UI language: comma delimiter, dot decimal, UTF-8 (with a byte-order mark so spreadsheets read accents), dates as ISO `YYYY-MM-DD`. The plain backup is CSV; a ZIP that adds the settings and receipt photos is described in section 13. Source ticket: *Import and export rules*.
 
 **`transactions.csv`** columns: `date`, `type` (`expense` or `income`), `amount` (positive), `categories`, `note`. Several Categories in one cell are separated by `|`. There is no `id` column.
 
@@ -285,3 +286,21 @@ Check these before building; each is also recorded in the named ticket.
 - Tickets with full resolutions: `.wayfinder/tickets/` (storage reliability, transaction entry flow, Category lifecycle, import and export rules, home screen prototype, backup and restore experience, tech stack, settings and first run)
 - Storage research with sources: `.wayfinder/research/01-local-pwa-storage-reliability.md`
 - Home screen reference prototype: `.wayfinder/prototypes/home-screen/index.html`
+
+## 13. Additions after v1
+
+Added after the first release. They keep the local-only promise: nothing here leaves the device unless the user exports it.
+
+**Charts page** (a bar icon in the Home header). It opens on the month being viewed on Home and has its own month controls: previous, next and a month picker (future months are not offered by the picker). It shows:
+- *Income and expenses*: one pair of bars (income, expenses) per month for the last 6 or 12 months ending at the chosen month, drawn as plain SVG. Empty months are zero.
+- *By Category*: a donut for the chosen month, for Expenses or Income. The five biggest Categories get their own colour and the rest are folded into one grey "Other" slice. Categories overlap (a Transaction counts in full under each of its Categories), so the shares are of the Category lines, not of the real total.
+- *Compared with last month*: each Category with its amount this month and the change since the month before (▲/▼ and the amount, "new" when it had nothing last month, "same" when unchanged). More spending is shown as bad and more income as good. A Category that only had activity last month stays listed with zero.
+Retired labels are included everywhere a Category is.
+
+**Receipt photos.** A Transaction can carry up to 5 photos, added in the Transaction form ("Add photo" opens the camera or photo library on a phone). Photos are shrunk when added (longest side 1280 px, JPEG quality 0.8, about 150 KB each) and stored in IndexedDB in their own store, linked to the Transaction by id. Adding or removing a photo waits for Save; cancelling the form discards the changes. A paperclip in the Transactions list marks Transactions that have photos, and tapping a thumbnail shows the photo full size. Adding or removing a photo counts as a change for the backup reminder. Photos are not OCR-read. Deleting a Transaction keeps its photos for the Undo window; photos with no Transaction are removed the next time the app opens. CSV files cannot carry photos, so only the ZIP backup does.
+
+**Full backup (ZIP).** Settings has a second backup row, "Full backup (ZIP)", next to the CSV export. One file `money-backup-YYYY-MM-DD.zip` holds `transactions.csv`, `categories.csv`, `recurring.csv` (when there are rules), `settings.json` (language, Opening balance, sort order) and `attachments/<row>-<n>.<jpg|png|webp>`, where `<row>` is the photo's Transaction row in `transactions.csv`. It is shared through the share sheet when supported, otherwise downloaded, and counts as a backup for the reminder. Import accepts a `.zip` or the CSV files in the same dialog. Importing a ZIP is still replace-everything with the same preview, and it also restores the settings it carries and the photos; because the Opening balance came with it, the "Check your opening balance" step is skipped. Settings with an invalid value are ignored. A ZIP without a Transactions and a Categories file, or a file that is not a ZIP, is refused with a message. The CSV export and the backup banner stay as they were and do not include photos.
+
+**Monthly report.** On the Summary tab, "Monthly report" opens a report for the month being viewed: the Balance at the start of the month, Income, Expenses, Net, the Balance at the end, the per-Category lines, and every Transaction day by day (oldest first) with its Categories. "Print / Save as PDF" opens the browser's print dialog, where the user can save a PDF; the print layout hides the app and shows only the report. There is no PDF library, so this works offline and adds nothing to the app size.
+
+**Technology.** One new dependency, `fflate`, for the ZIP. The database is now at version 3 (adds the photos store; existing data is untouched).
