@@ -83,7 +83,16 @@ export async function exportFiles(data: LedgerData, rules: RecurringRule[], shar
 /** Hands the user one ZIP file with everything, through the share sheet or as a download. Returns false if dismissed. */
 export async function exportArchiveFile(content: ArchiveContent, shareTitle: string): Promise<boolean> {
   const bytes = exportArchive(content, categoryName);
-  const file = new File([bytes as BlobPart], `money-backup-${stamp(new Date())}.zip`, { type: 'application/zip' });
+  return saveFile(new File([bytes as BlobPart], `money-backup-${stamp(new Date())}.zip`, { type: 'application/zip' }), shareTitle);
+}
+
+/** Hands the user the monthly report as a PDF file. Returns false if the share sheet was dismissed. */
+export async function saveReportPdf(bytes: Uint8Array, month: string, shareTitle: string): Promise<boolean> {
+  return saveFile(new File([bytes as BlobPart], `report-${month}.pdf`, { type: 'application/pdf' }), shareTitle);
+}
+
+/** Through the share sheet when the browser can share files, otherwise as a download. */
+async function saveFile(file: File, shareTitle: string): Promise<boolean> {
   if (navigator.canShare?.({ files: [file] })) {
     try {
       await navigator.share({ files: [file], title: shareTitle });

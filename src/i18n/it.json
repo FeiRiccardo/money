@@ -83,7 +83,10 @@
   },
   "report": {
     "title": "Report",
-    "print": "Stampa / Salva come PDF",
+    "download": "Scarica PDF",
+    "print": "Stampa",
+    "saved": "Report salvato come PDF.",
+    "failed": "Non è stato possibile salvare il report. Riprova.",
     "heading": "Report mensile: {{month}}",
     "generated": "Creato il {{date}}",
     "startBalance": "Saldo iniziale",

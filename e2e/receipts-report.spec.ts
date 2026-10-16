@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { readFileSync } from 'node:fs';
 
 test.beforeEach(async ({ page }) => {
   // Force the plain-download path (the OS share sheet is not scriptable).
@@ -96,12 +97,37 @@ test.describe('monthly report', () => {
     await expect(page.getByTestId('report-expenses')).toHaveText('€20.00');
     await expect(page.getByTestId('report-end')).toHaveText('€80.00');
     await expect(page.getByTestId('report-row')).toHaveCount(2);
-    await expect(page.getByRole('button', { name: 'Print / Save as PDF' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Print', exact: true })).toBeVisible();
 
     // Print layout: the app chrome is gone and only the report is left.
     await page.emulateMedia({ media: 'print' });
-    await expect(page.getByRole('button', { name: 'Print / Save as PDF' })).toBeHidden();
+    await expect(page.getByRole('button', { name: 'Print', exact: true })).toBeHidden();
+    await expect(page.getByRole('button', { name: 'Download PDF' })).toBeHidden();
     await expect(page.getByTestId('report')).toBeVisible();
+  });
+});
+
+test.describe('report PDF', () => {
+  test('Download PDF saves a real PDF file with the report in it', async ({ page }, testInfo) => {
+    await startFresh(page);
+    await openForm(page, '20', 'Groceries', 'Caffè (bar)');
+    await save(page);
+    await page.getByRole('tab', { name: 'Summary' }).click();
+    await page.getByRole('button', { name: 'Monthly report' }).click();
+
+    const download = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'Download PDF' }).click();
+    const file = await download;
+
+    expect(file.suggestedFilename()).toMatch(/^report-\d{4}-\d{2}\.pdf$/);
+    const path = testInfo.outputPath(file.suggestedFilename());
+    await file.saveAs(path);
+    const text = readFileSync(path).toString('latin1');
+    expect(text.startsWith('%PDF-1.4')).toBe(true);
+    expect(text).toContain('Monthly report: ');
+    expect(text).toContain('(Caff\u00e8 \\(bar\\))');
+    expect(text).toContain('20.00');
+    await expect(page.getByText('Report saved as a PDF.')).toBeVisible();
   });
 });
 

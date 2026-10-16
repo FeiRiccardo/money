@@ -1,17 +1,33 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { buildReport } from '../domain/report';
 import type { SummaryLine } from '../domain/summary';
 import { categoryName } from '../i18n';
 import { dayLabel, formatMoney, monthLabel } from './format';
+import { saveReportPdf } from './platform';
+import { reportPdf } from './reportPdf';
 import { useStore } from './store';
 
 /** A print-ready monthly report. "Print / Save as PDF" opens the browser's print dialog. */
 export function ReportScreen({ month, onBack }: { month: string; onBack: () => void }) {
   const { t } = useTranslation();
-  const { data, settings, language } = useStore();
+  const { data, settings, language, notify } = useStore();
+  const [saving, setSaving] = useState(false);
   const report = useMemo(() => buildReport(data, month, settings.openingCents, categoryName), [data, month, settings.openingCents]);
   const money = (cents: number) => formatMoney(cents, language);
+  const today = new Intl.DateTimeFormat(language === 'it' ? 'it-IT' : 'en-IE', { dateStyle: 'long' }).format(new Date());
+
+  async function downloadPdf() {
+    setSaving(true);
+    try {
+      const done = await saveReportPdf(reportPdf(report, language, t, today), month, t('report.title'));
+      if (done) notify({ kind: 'success', message: t('report.saved') });
+    } catch {
+      notify({ kind: 'error', message: t('report.failed') });
+    } finally {
+      setSaving(false);
+    }
+  }
   const signedMoney = (type: 'income' | 'expense', cents: number) => (type === 'income' ? '+' : '−') + money(cents);
 
   return (
@@ -22,15 +38,20 @@ export function ReportScreen({ month, onBack }: { month: string; onBack: () => v
         </button>
         <h1>{t('report.title')}</h1>
         <span className="spacer" />
-        <button className="btn primary" onClick={() => window.print()}>
-          {t('report.print')}
-        </button>
       </header>
 
       <div className="scroll">
+        <div className="report-actions no-print">
+          <button className="btn primary" disabled={saving} onClick={() => void downloadPdf()}>
+            {t('report.download')}
+          </button>
+          <button className="btn" onClick={() => window.print()}>
+            {t('report.print')}
+          </button>
+        </div>
         <article className="report" data-testid="report">
           <h1 className="report-title">{t('report.heading', { month: monthLabel(month, language) })}</h1>
-          <p className="muted small">{t('report.generated', { date: new Intl.DateTimeFormat(language === 'it' ? 'it-IT' : 'en-IE', { dateStyle: 'long' }).format(new Date()) })}</p>
+          <p className="muted small">{t('report.generated', { date: today })}</p>
 
           <table className="report-table totals-table">
             <tbody>

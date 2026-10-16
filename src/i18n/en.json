@@ -83,7 +83,10 @@
   },
   "report": {
     "title": "Report",
-    "print": "Print / Save as PDF",
+    "download": "Download PDF",
+    "print": "Print",
+    "saved": "Report saved as a PDF.",
+    "failed": "The report could not be saved. Please try again.",
     "heading": "Monthly report: {{month}}",
     "generated": "Created on {{date}}",
     "startBalance": "Balance at the start",
