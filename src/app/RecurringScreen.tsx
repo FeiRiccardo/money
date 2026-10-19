@@ -27,7 +27,7 @@ export function RecurringScreen({ onBack }: { onBack: () => void }) {
   return (
     <div className="screen">
       <header className="bar-head">
-        <button className="icon-btn" onClick={onBack} aria-label={t('common.back')}>
+        <button className="icon-btn back" onClick={onBack} aria-label={t('common.back')}>
           ←
         </button>
         <h1>{t('recurring.title')}</h1>

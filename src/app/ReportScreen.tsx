@@ -33,7 +33,7 @@ export function ReportScreen({ month, onBack }: { month: string; onBack: () => v
   return (
     <div className="screen report-screen">
       <header className="bar-head no-print">
-        <button className="icon-btn" onClick={onBack} aria-label={t('common.back')}>
+        <button className="icon-btn back" onClick={onBack} aria-label={t('common.back')}>
           ←
         </button>
         <h1>{t('report.title')}</h1>

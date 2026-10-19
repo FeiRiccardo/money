@@ -51,7 +51,7 @@ export function SearchScreen({ onBack, onEdit }: { onBack: () => void; onEdit: (
   return (
     <div className="screen">
       <header className="bar-head">
-        <button className="icon-btn" onClick={onBack} aria-label={t('common.back')}>
+        <button className="icon-btn back" onClick={onBack} aria-label={t('common.back')}>
           ←
         </button>
         <input

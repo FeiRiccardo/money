@@ -6,6 +6,7 @@ import { balance, summarize, type SummaryLine } from '../domain/summary';
 import type { Transaction } from '../domain/types';
 import { categoryName } from '../i18n';
 import { dayLabel, formatMoney, monthLabel, monthOf, shiftMonth, todayISO } from './format';
+import { useDesktop } from './layout';
 import { isIos, isStandalone } from './platform';
 import { useStore } from './store';
 import { SortSelect, TransactionRow } from './TransactionRow';
@@ -27,6 +28,7 @@ export function Home({ onAdd, onEdit, onSettings, onSearch, onCharts, onReport }
   const { data, settings, language } = store;
   const [month, setMonth] = useState(() => monthOf(todayISO()));
   const [tab, setTab] = useState<Tab>('transactions');
+  const desktop = useDesktop();
 
   const money = (cents: number) => formatMoney(cents, language);
   const monthTransactions = useMemo(
@@ -56,8 +58,128 @@ export function Home({ onAdd, onEdit, onSettings, onSearch, onCharts, onReport }
 
   const noTransactionsAtAll = data.transactions.length === 0;
 
+  const addButton = (
+    <button className="btn primary add-btn" onClick={onAdd}>
+      + {t('home.add')}
+    </button>
+  );
+
+  const icons = (
+    <div className="head-actions">
+      <button className="icon-btn" aria-label={t('home.search')} onClick={onSearch}>
+        ⌕
+      </button>
+      <button className="icon-btn" aria-label={t('charts.open')} onClick={() => onCharts(month)}>
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+          <path d="M5 20V10M12 20V4M19 20v-7" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+        </svg>
+      </button>
+      <button className="icon-btn" aria-label={t('home.settings')} onClick={onSettings}>
+        ⚙
+      </button>
+    </div>
+  );
+
+  const banners = (
+    <>
+      {banner === 'install' && (
+        <div className="banner">
+          <b>{t('banner.installTitle')}</b>
+          <p>{t('banner.installBody')}</p>
+          <div className="banner-actions">
+            <button className="btn" onClick={() => void store.dismissBanner('install')}>
+              {t('banner.dismiss')}
+            </button>
+          </div>
+        </div>
+      )}
+      {banner === 'backup' && (
+        <div className="banner">
+          <b>
+            {settings.lastBackupAt === null
+              ? t('banner.backupNever')
+              : t('banner.backupTitle', { count: settings.changesSinceBackup })}
+          </b>
+          <div className="banner-actions">
+            <button className="btn" onClick={() => void store.dismissBanner('backup')}>
+              {t('banner.dismiss')}
+            </button>
+            <button className="btn primary" onClick={() => void store.exportBackup()}>
+              {t('banner.backUpNow')}
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+
+  const list = (
+    <div className="list">
+      {monthTransactions.length > 0 && (
+        <div className="list-tools">
+          <SortSelect value={settings.sortOrder} onChange={(order) => void store.setSortOrder(order)} />
+        </div>
+      )}
+      {monthTransactions.length === 0 && (
+        <p className="empty">{noTransactionsAtAll ? t('home.emptyNone') : t('home.emptyMonth')}</p>
+      )}
+
+      {byDate &&
+        days.map((day) => {
+          const dayTx = monthTransactions.filter((tx) => tx.date === day);
+          const net = dayTx.reduce((sum, tx) => sum + (tx.type === 'income' ? tx.cents : -tx.cents), 0);
+          return (
+            <section key={day}>
+              <div className="day-head">
+                <span>{day === todayISO() ? t('home.today') : dayLabel(day, language)}</span>
+                <span>{money(net)}</span>
+              </div>
+              {dayTx.map((tx) => (
+                <TransactionRow key={tx.id} tx={tx} onOpen={onEdit} />
+              ))}
+            </section>
+          );
+        })}
+
+      {!byDate && monthTransactions.map((tx) => <TransactionRow key={tx.id} tx={tx} onOpen={onEdit} showDate />)}
+    </div>
+  );
+
+  const summaryPanel = (
+    <div className="summary">
+      {monthTransactions.length === 0 ? (
+        <p className="empty">{t('home.emptySummary')}</p>
+      ) : (
+        <>
+          <div className="totals">
+            <div>
+              <small className="muted">{t('summary.income')}</small>
+              <b className="income amount" data-testid="sum-income">{money(summary.incomeCents)}</b>
+            </div>
+            <div>
+              <small className="muted">{t('summary.expenses')}</small>
+              <b className="expense amount" data-testid="sum-expenses">{money(summary.expenseCents)}</b>
+            </div>
+            <div>
+              <small className="muted">{t('summary.net')}</small>
+              <b className="amount" data-testid="sum-net">{money(summary.netCents)}</b>
+            </div>
+          </div>
+          <h3>{t('summary.expensesByCategory')}</h3>
+          <Lines lines={summary.expenseLines} money={money} />
+          <h3>{t('summary.incomeByCategory')}</h3>
+          <Lines lines={summary.incomeLines} money={money} />
+          <p className="muted small">{t('summary.overlap')}</p>
+          <button className="btn wide" onClick={() => onReport(month)}>
+            {t('home.report')}
+          </button>
+        </>
+      )}
+    </div>
+  );
+
   return (
-    <div className="screen">
+    <div className="screen home">
       <header className="home-head">
         <div className="month-row">
           <button className="icon-btn" aria-label={t('home.previousMonth')} onClick={() => setMonth(shiftMonth(month, -1))}>
@@ -75,132 +197,45 @@ export function Home({ onAdd, onEdit, onSettings, onSearch, onCharts, onReport }
               {money(balance(data, settings.openingCents))}
             </b>
           </div>
-          <div className="head-actions">
-            <button className="icon-btn" aria-label={t('home.search')} onClick={onSearch}>
-              ⌕
-            </button>
-            <button className="icon-btn" aria-label={t('charts.open')} onClick={() => onCharts(month)}>
-              <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
-                <path d="M5 20V10M12 20V4M19 20v-7" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
-              </svg>
-            </button>
-            <button className="icon-btn" aria-label={t('home.settings')} onClick={onSettings}>
-              ⚙
-            </button>
-          </div>
+          {desktop ? addButton : icons}
         </div>
       </header>
 
-      <div className="tabs" role="tablist">
-        <button role="tab" aria-selected={tab === 'transactions'} className={tab === 'transactions' ? 'on' : ''} onClick={() => setTab('transactions')}>
-          {t('home.tabTransactions')}
-        </button>
-        <button role="tab" aria-selected={tab === 'summary'} className={tab === 'summary' ? 'on' : ''} onClick={() => setTab('summary')}>
-          {t('home.tabSummary')}
-        </button>
-      </div>
-
-      <div className="scroll">
-        {tab === 'transactions' && banner === 'install' && (
-          <div className="banner">
-            <b>{t('banner.installTitle')}</b>
-            <p>{t('banner.installBody')}</p>
-            <div className="banner-actions">
-              <button className="btn" onClick={() => void store.dismissBanner('install')}>
-                {t('banner.dismiss')}
-              </button>
-            </div>
+      {desktop ? (
+        // Wide screen: the sidebar has the icons' places, and both panels show at once.
+        <div className="home-cols">
+          <div className="scroll">
+            {banners}
+            {list}
           </div>
-        )}
-        {tab === 'transactions' && banner === 'backup' && (
-          <div className="banner">
-            <b>
-              {settings.lastBackupAt === null
-                ? t('banner.backupNever')
-                : t('banner.backupTitle', { count: settings.changesSinceBackup })}
-            </b>
-            <div className="banner-actions">
-              <button className="btn" onClick={() => void store.dismissBanner('backup')}>
-                {t('banner.dismiss')}
-              </button>
-              <button className="btn primary" onClick={() => void store.exportBackup()}>
-                {t('banner.backUpNow')}
-              </button>
-            </div>
+          <div className="scroll side-panel">{summaryPanel}</div>
+        </div>
+      ) : (
+        <>
+          <div className="tabs" role="tablist">
+            <button role="tab" aria-selected={tab === 'transactions'} className={tab === 'transactions' ? 'on' : ''} onClick={() => setTab('transactions')}>
+              {t('home.tabTransactions')}
+            </button>
+            <button role="tab" aria-selected={tab === 'summary'} className={tab === 'summary' ? 'on' : ''} onClick={() => setTab('summary')}>
+              {t('home.tabSummary')}
+            </button>
           </div>
-        )}
-
-        {tab === 'transactions' && (
-          <div className="list">
-            {monthTransactions.length > 0 && (
-              <div className="list-tools">
-                <SortSelect value={settings.sortOrder} onChange={(order) => void store.setSortOrder(order)} />
-              </div>
-            )}
-            {monthTransactions.length === 0 && (
-              <p className="empty">{noTransactionsAtAll ? t('home.emptyNone') : t('home.emptyMonth')}</p>
-            )}
-
-            {byDate &&
-              days.map((day) => {
-                const dayTx = monthTransactions.filter((tx) => tx.date === day);
-                const net = dayTx.reduce((sum, tx) => sum + (tx.type === 'income' ? tx.cents : -tx.cents), 0);
-                return (
-                  <section key={day}>
-                    <div className="day-head">
-                      <span>{day === todayISO() ? t('home.today') : dayLabel(day, language)}</span>
-                      <span>{money(net)}</span>
-                    </div>
-                    {dayTx.map((tx) => (
-                      <TransactionRow key={tx.id} tx={tx} onOpen={onEdit} />
-                    ))}
-                  </section>
-                );
-              })}
-
-            {!byDate && monthTransactions.map((tx) => <TransactionRow key={tx.id} tx={tx} onOpen={onEdit} showDate />)}
-          </div>
-        )}
-
-        {tab === 'summary' && (
-          <div className="summary">
-            {monthTransactions.length === 0 ? (
-              <p className="empty">{t('home.emptySummary')}</p>
-            ) : (
+          <div className="scroll">
+            {tab === 'transactions' && (
               <>
-                <div className="totals">
-                  <div>
-                    <small className="muted">{t('summary.income')}</small>
-                    <b className="income amount" data-testid="sum-income">{money(summary.incomeCents)}</b>
-                  </div>
-                  <div>
-                    <small className="muted">{t('summary.expenses')}</small>
-                    <b className="expense amount" data-testid="sum-expenses">{money(summary.expenseCents)}</b>
-                  </div>
-                  <div>
-                    <small className="muted">{t('summary.net')}</small>
-                    <b className="amount" data-testid="sum-net">{money(summary.netCents)}</b>
-                  </div>
-                </div>
-                <h3>{t('summary.expensesByCategory')}</h3>
-                <Lines lines={summary.expenseLines} money={money} />
-                <h3>{t('summary.incomeByCategory')}</h3>
-                <Lines lines={summary.incomeLines} money={money} />
-                <p className="muted small">{t('summary.overlap')}</p>
-                <button className="btn wide" onClick={() => onReport(month)}>
-                  {t('home.report')}
-                </button>
+                {banners}
+                {list}
               </>
             )}
+            {tab === 'summary' && summaryPanel}
           </div>
-        )}
-      </div>
-
-      <button className="fab" aria-label={t('home.add')} onClick={onAdd}>
-        <svg className="fab-icon" viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
-          <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" />
-        </svg>
-      </button>
+          <button className="fab" aria-label={t('home.add')} onClick={onAdd}>
+            <svg className="fab-icon" viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
+              <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" />
+            </svg>
+          </button>
+        </>
+      )}
     </div>
   );
 }

@@ -321,3 +321,12 @@ An optional copy of the Full backup kept in the user's own Google Drive, so the 
 - **Restore.** "Restore from Google Drive" (Settings, and on the first-run screen) downloads the file and opens the usual import preview, with the same confirmation, settings, photos and Undo as importing a ZIP. After a restore, this device knows that file and saves over it from then on.
 - **Disconnect.** Forgets the token and the remembered file on this device. The file stays in Drive (the user can remove it from Drive's settings under "Manage apps").
 - **Failures.** A network or Drive error during an automatic save shows no toast and is retried on the next change; Settings shows "Last saved to Drive" so the user can see it is behind. "Save now" and "Restore" show an error toast when they fail.
+
+## 15. Desktop layout
+
+On a screen at least 1000 px wide (`src/app/layout.ts`) the app uses a desktop layout; narrower screens, phones included, keep the phone layout unchanged, and resizing the window switches between them.
+
+- A **sidebar** on the left: Home, Search, Charts, Recurring, Categories, Settings, with the current one highlighted. It replaces Home's icons and the screens' back arrows (the monthly report counts as Home). Charts opened from the sidebar starts at the current month.
+- **Home** shows the month controls, the Balance and a "+ Add a Transaction" button in one header, then the Transactions list and the Summary side by side (no tabs, no floating + button). The backup and install banners sit above the list.
+- Other screens use a centred column up to 880 px wide.
+- The **Transaction form** opens as a centred panel over the dimmed page (up to 600 px wide), and Escape closes it like ✕ (a dialog opened from the form closes first). Dialogs are centred, up to 520 px wide. Toasts sit at the bottom right.

@@ -343,5 +343,9 @@
     "refused": "Google Drive non è stato collegato.",
     "disconnected": "Google Drive scollegato. Il backup resta nel tuo Drive.",
     "loadedNewer": "Caricati i dati più recenti da Google Drive"
+  },
+  "nav": {
+    "home": "Home",
+    "menu": "Menu principale"
   }
 }

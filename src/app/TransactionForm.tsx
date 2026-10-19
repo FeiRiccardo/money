@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { parseAmount, type NameError } from '../domain/rules';
 import { sortTransactions } from '../domain/search';
@@ -137,6 +137,15 @@ export function TransactionForm({ transaction, prefill, onClose, onDuplicate }: 
     await store.deleteTransaction(transaction.id);
     onClose();
   }
+
+  // Escape closes the form, as the ✕ does, unless a dialog opened from the form is on top (it closes itself).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !document.querySelector('.dialog')) onClose();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
 
   async function stopRepeating() {
     if (!rule) return;
