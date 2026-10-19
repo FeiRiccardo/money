@@ -2,7 +2,7 @@
 
 A simple personal money and expense tracker for one person. It runs in the browser as an installable web app (PWA), keeps all data on the device, and backs up through CSV files or one full ZIP (with settings and receipt photos). It also has charts, receipt photos and a printable monthly report.
 
-**Open the app: https://feiriccardo.github.io/money-tracker/**
+**Open the app: https://feiriccardo.github.io/money/**
 
 On a phone, open the link and use "Add to Home Screen" (iOS) or "Install" (Android) so it works like a normal app and the browser does not erase its data.
 
