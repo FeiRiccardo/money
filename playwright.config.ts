@@ -15,6 +15,8 @@ export default defineConfig({
     command: 'npm run build && npx vite preview --port 4173 --strictPort',
     url: 'http://localhost:4173',
     reuseExistingServer: true,
+    // Shows the Google Drive rows; Google and Drive themselves are faked in e2e/drive.spec.ts.
+    env: { VITE_GOOGLE_CLIENT_ID: 'test-client.apps.googleusercontent.com' },
     timeout: 120_000,
   },
 });

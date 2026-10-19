@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { importArchive } from '../domain/archive';
 import { previewImport, type ImportPreview } from '../domain/backup';
+import type { DriveFile } from '../domain/types';
 import { useStore, type ImportExtras } from './store';
 import { Dialog } from './ui';
 
@@ -24,7 +25,19 @@ export function classifyFiles(texts: string[]): ChosenFiles | null {
   return { transactionsCsv, categoriesCsv, recurringCsv };
 }
 
-export function ImportFlow({ onClose }: { onClose: () => void }) {
+/**
+ * The import dialog: pick files, see the preview, confirm. With `source` (a ZIP downloaded from Google Drive)
+ * the picker is skipped and the preview opens straight away.
+ */
+export function ImportFlow({
+  onClose,
+  source,
+  onImported,
+}: {
+  onClose: () => void;
+  source?: { bytes: Uint8Array; file: DriveFile };
+  onImported?: () => void;
+}) {
   const { t } = useTranslation();
   const store = useStore();
   const [problem, setProblem] = useState<string | null>(null);
@@ -32,6 +45,21 @@ export function ImportFlow({ onClose }: { onClose: () => void }) {
   const [busy, setBusy] = useState(false);
   /** Set when the chosen file was a ZIP: its settings and photos come along. */
   const [extras, setExtras] = useState<ImportExtras | null>(null);
+
+  function openArchive(bytes: Uint8Array, driveFile?: DriveFile) {
+    const archive = importArchive(bytes);
+    if (!archive.ok) setProblem(t(`import.zip.${archive.reason}`));
+    else if (archive.preview.fatal) setProblem(t(`import.fatal.${archive.preview.fatal}`));
+    else {
+      setPreview(archive.preview);
+      setExtras({ settings: archive.settings, photos: archive.attachments, driveFile });
+    }
+  }
+
+  useEffect(() => {
+    if (source) openArchive(source.bytes, source.file);
+    // Only the source given when the dialog opened.
+  }, []);
 
   async function choose(files: FileList | null) {
     setProblem(null);
@@ -47,13 +75,7 @@ export function ImportFlow({ onClose }: { onClose: () => void }) {
         setProblem(t('import.unreadable'));
         return;
       }
-      const archive = importArchive(bytes);
-      if (!archive.ok) setProblem(t(`import.zip.${archive.reason}`));
-      else if (archive.preview.fatal) setProblem(t(`import.fatal.${archive.preview.fatal}`));
-      else {
-        setPreview(archive.preview);
-        setExtras({ settings: archive.settings, photos: archive.attachments });
-      }
+      openArchive(bytes);
       return;
     }
     let texts: string[];
@@ -78,24 +100,29 @@ export function ImportFlow({ onClose }: { onClose: () => void }) {
     setBusy(true);
     await store.applyImport(preview.data, preview.rules, extras ?? undefined);
     setBusy(false);
+    onImported?.();
     onClose();
   }
 
   const fileLabel = { transactions: 'import.fileTransactions', categories: 'import.fileCategories', recurring: 'import.fileRecurring' } as const;
 
   return (
-    <Dialog title={t('import.title')} onClose={onClose}>
-      <label className="field">
-        <span>{t('import.chooseFiles')}</span>
-        <input
-          type="file"
-          accept=".csv,text/csv,.zip,application/zip"
-          multiple
-          data-testid="import-files"
-          onChange={(e) => void choose(e.target.files)}
-        />
-      </label>
-      <p className="muted small">{t('import.chooseHelp')}</p>
+    <Dialog title={t(source ? 'drive.restoreTitle' : 'import.title')} onClose={onClose}>
+      {!source && (
+        <>
+          <label className="field">
+            <span>{t('import.chooseFiles')}</span>
+            <input
+              type="file"
+              accept=".csv,text/csv,.zip,application/zip"
+              multiple
+              data-testid="import-files"
+              onChange={(e) => void choose(e.target.files)}
+            />
+          </label>
+          <p className="muted small">{t('import.chooseHelp')}</p>
+        </>
+      )}
       {problem && <div className="error">{problem}</div>}
 
       {preview && (

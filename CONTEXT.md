@@ -47,3 +47,7 @@ _Avoid_: Attachment, receipt scan, image
 **Full backup**:
 One ZIP file with everything the CSV backup has plus the settings and the Receipt photos.
 _Avoid_: Archive, export all
+
+**Drive backup**:
+The Full backup kept as one file in a hidden app folder of the user's own Google Drive, saved automatically while connected.
+_Avoid_: Cloud sync, account, sync

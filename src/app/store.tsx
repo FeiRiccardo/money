@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { openLedger, type CategoryResult, type Ledger, type RuleInput, type TransactionInput } from '../data/ledger';
-import type { ArchiveSettings, PhotoFile } from '../domain/archive';
+import { exportArchive, type ArchiveContent, type ArchiveSettings, type PhotoFile } from '../domain/archive';
 import { BACKUP_DISMISS_MS, INSTALL_DISMISS_MS } from '../domain/reminders';
 import {
   EMPTY_TOASTS,
@@ -19,6 +19,7 @@ import {
   type Attachment,
   type AttachmentInput,
   type Category,
+  type DriveFile,
   type Frequency,
   type Language,
   type LedgerData,
@@ -47,6 +48,8 @@ export interface PhotoChanges {
 export interface ImportExtras {
   settings: Partial<ArchiveSettings>;
   photos: Map<string, PhotoFile[]>;
+  /** Set when the ZIP came from Google Drive: this device now knows that copy. */
+  driveFile?: DriveFile;
 }
 
 export interface Store {
@@ -90,6 +93,15 @@ export interface Store {
   exportBackup: () => Promise<boolean>;
   /** One ZIP with the CSV data, the settings and the receipt photos. */
   exportZip: () => Promise<boolean>;
+  /** The Full backup ZIP, as bytes. */
+  buildArchive: () => Promise<Uint8Array>;
+  /**
+   * Records a save to Google Drive. It counts as a backup: the changes it carried (`changesIncluded`, the count
+   * when the save started) come off the count, and any made while it was uploading stay.
+   */
+  recordDriveSave: (file: DriveFile, changesIncluded: number) => Promise<void>;
+  /** Forgets the Drive copy this device knew (Disconnect). */
+  forgetDriveFile: () => Promise<void>;
   dismissBanner: (kind: 'backup' | 'install') => Promise<void>;
 }
 
@@ -221,6 +233,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [ready, storageError, onboarded, runRecurring]);
 
   const store = useMemo<Store>(() => {
+    const archiveContent = async (): Promise<ArchiveContent> => {
+      const attachments = new Map<string, PhotoFile[]>();
+      for (const a of await ledgerRef.current!.allAttachments()) {
+        attachments.set(a.transactionId, [...(attachments.get(a.transactionId) ?? []), { mime: a.mime, bytes: new Uint8Array(a.data) }]);
+      }
+      const { language, openingCents, sortOrder } = settings;
+      return { data, rules, settings: { language, openingCents, sortOrder }, attachments };
+    };
     const requestPersistenceOnce = async () => {
       const current = (await ledgerRef.current!.load()).settings;
       if (current.persistRequested) return;
@@ -377,7 +397,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         );
         const result = await write(async (l) => {
           await l.replaceAll(imported, importedRules, photos);
-          if (extras && Object.keys(extras.settings).length > 0) await l.updateSettings(extras.settings);
+          const patch = { ...extras?.settings, ...(extras?.driveFile ? { driveFile: extras.driveFile } : {}) };
+          if (Object.keys(patch).length > 0) await l.updateSettings(patch);
         });
         if (!result.ok) return;
         if (extras?.settings.language) applyLanguage(extras.settings.language);
@@ -420,16 +441,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       async exportZip() {
         try {
-          const ledger = ledgerRef.current!;
-          const attachments = new Map<string, PhotoFile[]>();
-          for (const a of await ledger.allAttachments()) {
-            attachments.set(a.transactionId, [...(attachments.get(a.transactionId) ?? []), { mime: a.mime, bytes: new Uint8Array(a.data) }]);
-          }
-          const { language, openingCents, sortOrder } = settings;
-          const shared = await exportArchiveFile(
-            { data, rules, settings: { language, openingCents, sortOrder }, attachments },
-            i18n.t('export.shareTitle'),
-          );
+          const shared = await exportArchiveFile(await archiveContent(), i18n.t('export.shareTitle'));
           if (!shared) return false;
           await write((l) => l.updateSettings({ lastBackupAt: Date.now(), changesSinceBackup: 0 }));
           notify({ kind: 'success', message: i18n.t('export.zipDone') });
@@ -438,6 +450,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           notify({ kind: 'error', message: i18n.t('toast.exportFailed') });
           return false;
         }
+      },
+
+      async buildArchive() {
+        return exportArchive(await archiveContent(), categoryName);
+      },
+
+      async recordDriveSave(file, changesIncluded) {
+        await write(async (l) => {
+          const now = (await l.load()).settings;
+          await l.updateSettings({
+            driveFile: file,
+            driveSavedAt: Date.now(),
+            lastBackupAt: Date.now(),
+            changesSinceBackup: Math.max(0, now.changesSinceBackup - changesIncluded),
+          });
+        });
+      },
+
+      async forgetDriveFile() {
+        await write((l) => l.updateSettings({ driveFile: null }));
       },
 
       async dismissBanner(kind) {

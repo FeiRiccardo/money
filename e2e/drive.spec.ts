@@ -1,0 +1,128 @@
+import { expect, test, type Page } from '@playwright/test';
+import { strFromU8, unzipSync } from 'fflate';
+import { createFakeDrive } from '../src/data/fakeDrive';
+import { exportArchive } from '../src/domain/archive';
+
+// Page requests must reach the routes below, not a service worker.
+test.use({ serviceWorkers: 'block' });
+
+const CORS = {
+  'access-control-allow-origin': '*',
+  'access-control-allow-headers': 'authorization, content-type',
+  'access-control-allow-methods': 'GET, POST, PATCH, PUT',
+  'access-control-expose-headers': 'location',
+};
+
+/** Google's consent page says yes at once, and Drive is the in-memory fake. */
+async function fakeGoogle(page: Page) {
+  const drive = createFakeDrive({ token: 'tok' });
+  await page.route('https://accounts.google.com/**', (route) => {
+    const asked = new URL(route.request().url());
+    const back = `${asked.searchParams.get('redirect_uri')}#state=${asked.searchParams.get('state')}&access_token=tok&token_type=Bearer&expires_in=3599`;
+    return route.fulfill({ contentType: 'text/html', body: `<script>location.replace(${JSON.stringify(back)})</script>` });
+  });
+  await page.route(/^https:\/\/(www\.googleapis\.com|upload\.fake)\//, async (route) => {
+    const request = route.request();
+    if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
+    const buffer = request.postDataBuffer();
+    const result = drive.handle({
+      method: request.method(),
+      url: request.url(),
+      headers: await request.allHeaders(),
+      body: buffer ? new Uint8Array(buffer) : null,
+    });
+    return route.fulfill({ status: result.status, headers: { ...result.headers, ...CORS }, body: Buffer.from(result.body) });
+  });
+  return drive;
+}
+
+/** The notes of the Transactions in the Drive copy. */
+function notesInDrive(drive: ReturnType<typeof createFakeDrive>): string {
+  const [file] = drive.appFiles();
+  return file ? strFromU8(unzipSync(file.bytes)['transactions.csv']) : '';
+}
+
+function backupWith(note: string): Uint8Array {
+  const category = { id: 'c1', type: 'expense' as const, name: 'Groceries', defaultKey: 'groceries', lastUsedAt: 1 };
+  const transaction = { id: 't1', date: '2026-10-01', type: 'expense' as const, cents: 1250, categoryIds: ['c1'], retired: [], note };
+  return exportArchive(
+    {
+      data: { categories: [category], transactions: [transaction] },
+      rules: [],
+      settings: { language: 'en', openingCents: 0, sortOrder: 'newest' },
+      attachments: new Map(),
+    },
+    (c) => c.name,
+  );
+}
+
+async function startFresh(page: Page) {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Start fresh' }).click();
+  await page.getByRole('button', { name: 'Skip' }).click();
+  await expect(page.getByTestId('balance')).toBeVisible();
+}
+
+async function addExpense(page: Page, note: string) {
+  await page.getByRole('button', { name: 'Add a Transaction' }).click();
+  await page.getByLabel('Amount', { exact: true }).fill('12.50');
+  await page.getByRole('button', { name: 'Groceries', exact: true }).click();
+  await page.getByPlaceholder('e.g. Coffee').fill(note);
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'New Transaction' })).toHaveCount(0);
+}
+
+async function connect(page: Page) {
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: /Connect Google Drive/ }).click();
+  await expect(page.getByText('Google Drive connected')).toBeVisible();
+}
+
+test('connecting saves the data to Drive, and later changes are saved automatically', async ({ page }) => {
+  const drive = await fakeGoogle(page);
+  await startFresh(page);
+  await addExpense(page, 'Bread');
+  await connect(page);
+  await expect.poll(() => notesInDrive(drive)).toContain('Bread');
+
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await expect(page.getByTestId('drive-saved-at')).not.toContainText('Never');
+  await page.getByRole('button', { name: 'Back', exact: true }).click();
+  await addExpense(page, 'Milk');
+  await expect.poll(() => notesInDrive(drive), { timeout: 15_000 }).toContain('Milk');
+  expect(drive.appFiles()).toHaveLength(1);
+});
+
+test('a new device restores the Drive backup from the first screen, then keeps saving over it', async ({ page }) => {
+  const drive = await fakeGoogle(page);
+  drive.writeFromAnotherDevice('money-backup.zip', backupWith('From my phone'));
+
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Restore from Google Drive' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Restore from Google Drive' });
+  await expect(dialog).toContainText('1 Transactions');
+  await dialog.getByRole('button', { name: 'Replace everything' }).click();
+  await expect(page.locator('.tx-row', { hasText: 'From my phone' })).toBeVisible();
+
+  await addExpense(page, 'From my laptop');
+  await expect.poll(() => notesInDrive(drive), { timeout: 15_000 }).toContain('From my laptop');
+});
+
+test('does not overwrite a newer backup from another device until told to', async ({ page }) => {
+  const drive = await fakeGoogle(page);
+  await startFresh(page);
+  await addExpense(page, 'Bread');
+  await connect(page);
+  await expect.poll(() => notesInDrive(drive)).toContain('Bread');
+
+  // Back from Google, the app opens on Home.
+  drive.writeFromAnotherDevice('money-backup.zip', backupWith('From my phone'));
+  await addExpense(page, 'Milk');
+  await expect(page.getByText('Google Drive has a newer backup from another device. Check Settings.')).toBeVisible({ timeout: 15_000 });
+  expect(notesInDrive(drive)).toContain('From my phone');
+
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: 'Replace it with this device' }).click();
+  await expect.poll(() => notesInDrive(drive)).toContain('Milk');
+  expect(notesInDrive(drive)).not.toContain('From my phone');
+});

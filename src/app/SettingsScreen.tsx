@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Language } from '../domain/types';
+import { DriveSection } from './DriveSection';
 import { dateTimeLabel, formatMoney } from './format';
 import { ImportFlow } from './ImportFlow';
 import { OpeningBalanceDialog } from './OpeningBalanceDialog';
@@ -93,6 +94,8 @@ export function SettingsScreen({ onBack, onCategories, onRecurring }: { onBack: 
           </p>
           <p className="muted small pad-x">{t('settings.openingNote')}</p>
         </section>
+
+        <DriveSection />
 
         <section>
           <h3>{t('settings.storage')}</h3>

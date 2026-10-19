@@ -318,5 +318,29 @@
     "erased": "Tutti i dati cancellati",
     "exportFailed": "Esportazione non riuscita. Riprova.",
     "dismiss": "Chiudi"
+  },
+  "drive": {
+    "title": "Google Drive",
+    "connect": "Collega Google Drive",
+    "connectHelp": "Salva il backup completo in una cartella nascosta del tuo Google Drive, automaticamente dopo ogni modifica. L'app non può vedere gli altri tuoi file.",
+    "restore": "Ripristina da Google Drive",
+    "restoreTitle": "Ripristina da Google Drive",
+    "saveNow": "Salva su Drive ora",
+    "autoHelp": "Collegato. Le modifiche vengono salvate su Drive automaticamente.",
+    "reconnect": "Ricollega Google Drive",
+    "expiredHelp": "Google chiede di accedere di nuovo ogni ora. Il salvataggio automatico è in pausa finché non lo fai.",
+    "disconnect": "Scollega Google Drive",
+    "lastSaved": "Ultimo salvataggio su Drive",
+    "conflict": "Google Drive ha un backup più recente da un altro dispositivo. Il salvataggio automatico è in pausa.",
+    "conflictRestore": "Ripristinalo",
+    "conflictReplace": "Sostituiscilo con questo dispositivo",
+    "conflictToast": "Google Drive ha un backup più recente da un altro dispositivo. Controlla le Impostazioni.",
+    "saved": "Salvato su Google Drive",
+    "failed": "Impossibile raggiungere Google Drive. Riprova più tardi.",
+    "expiredToast": "Google Drive chiede di accedere di nuovo.",
+    "nothingToRestore": "Non c'è ancora nessun backup su Google Drive.",
+    "connected": "Google Drive collegato",
+    "refused": "Google Drive non è stato collegato.",
+    "disconnected": "Google Drive scollegato. Il backup resta nel tuo Drive."
   }
 }

@@ -311,5 +311,29 @@
     "erased": "All data erased",
     "exportFailed": "Export failed. Please try again.",
     "dismiss": "Dismiss"
+  },
+  "drive": {
+    "title": "Google Drive",
+    "connect": "Connect Google Drive",
+    "connectHelp": "Saves your full backup to a hidden folder in your own Google Drive, automatically after each change. The app cannot see your other files.",
+    "restore": "Restore from Google Drive",
+    "restoreTitle": "Restore from Google Drive",
+    "saveNow": "Save to Drive now",
+    "autoHelp": "Connected. Changes are saved to Drive automatically.",
+    "reconnect": "Reconnect Google Drive",
+    "expiredHelp": "Google asks you to sign in again every hour. Automatic saving is paused until you do.",
+    "disconnect": "Disconnect Google Drive",
+    "lastSaved": "Last saved to Drive",
+    "conflict": "Google Drive has a newer backup from another device. Automatic saving is paused.",
+    "conflictRestore": "Restore it",
+    "conflictReplace": "Replace it with this device",
+    "conflictToast": "Google Drive has a newer backup from another device. Check Settings.",
+    "saved": "Saved to Google Drive",
+    "failed": "Google Drive could not be reached. Try again later.",
+    "expiredToast": "Google Drive needs you to sign in again.",
+    "nothingToRestore": "There is no backup in Google Drive yet.",
+    "connected": "Google Drive connected",
+    "refused": "Google Drive was not connected.",
+    "disconnected": "Google Drive disconnected. The backup stays in your Drive."
   }
 }

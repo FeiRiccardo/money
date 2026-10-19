@@ -77,6 +77,16 @@ export interface Settings {
   persistRequested: boolean;
   /** Remembered ordering of Transaction lists. */
   sortOrder: SortOrder;
+  /** The copy of the Drive backup this device last saved or restored; null when it knows none. */
+  driveFile: DriveFile | null;
+  /** When this device last saved to Google Drive. */
+  driveSavedAt: number | null;
+}
+
+/** Which copy of the Drive backup file this is: Drive changes `modifiedTime` on every save. */
+export interface DriveFile {
+  id: string;
+  modifiedTime: string;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -89,6 +99,8 @@ export const DEFAULT_SETTINGS: Settings = {
   installNudgeHiddenUntil: 0,
   persistRequested: false,
   sortOrder: 'newest',
+  driveFile: null,
+  driveSavedAt: null,
 };
 
 /** Starter Categories. `key` is stored as `defaultKey` and translated at display. */

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { parseSignedAmount } from '../domain/rules';
 import type { Language } from '../domain/types';
+import { useDrive } from './drive';
 import { ImportFlow } from './ImportFlow';
 import { useStore } from './store';
 
@@ -10,6 +11,7 @@ type Step = 'welcome' | 'starting' | 'import';
 export function FirstRun() {
   const { t } = useTranslation();
   const store = useStore();
+  const drive = useDrive();
   const [step, setStep] = useState<Step>('welcome');
   const [starting, setStarting] = useState('');
   const parsed = starting.trim() === '' ? 0 : parseSignedAmount(starting);
@@ -63,6 +65,11 @@ export function FirstRun() {
         <button className="btn" onClick={() => setStep('import')}>
           {t('firstRun.restore')}
         </button>
+        {drive.status !== 'unavailable' && (
+          <button className="btn" disabled={drive.busy} onClick={() => void drive.restore()}>
+            {t('drive.restore')}
+          </button>
+        )}
       </div>
 
       {step === 'import' && <ImportFlow onClose={() => setStep('welcome')} />}

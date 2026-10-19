@@ -19,7 +19,7 @@ This spec is compiled from the Wayfinder map in `.wayfinder/`. Every section nam
 - One Currency, EUR. English and Italian UI, selectable.
 
 **Out of scope for v1**
-- Sync, accounts, bank connections, receipt scanning or OCR.
+- Sync, accounts (an optional Google Drive backup came later, see [section 14](#14-google-drive-backup)), bank connections, receipt scanning or OCR.
 - Budgets.
 - Multiple accounts or wallets, multiple Currencies, shared or household use.
 - Sub-categories and merging Categories.
@@ -304,3 +304,16 @@ Retired labels are included everywhere a Category is.
 **Monthly report.** On the Summary tab, "Monthly report" opens a report for the month being viewed: the Balance at the start of the month, Income, Expenses, Net, the Balance at the end, the per-Category lines, and every Transaction day by day (oldest first) with its Categories. "Download PDF" saves a real PDF file (`report-YYYY-MM.pdf`, A4, text only) through the share sheet when supported, otherwise as a download; it works on every device, including phones and the installed app. "Print" opens the browser's print dialog, where it is available; the print layout hides the app and shows only the report. The PDF is written by a small built-in writer (`src/domain/pdf.ts`), so there is no PDF library and nothing extra to download.
 
 **Technology.** One new dependency, `fflate`, for the ZIP. The database is now at version 3 (adds the photos store; existing data is untouched).
+
+## 14. Google Drive backup
+
+An optional copy of the Full backup kept in the user's own Google Drive, so the data survives a lost phone or a cleared browser and can move to a new device. There is still no server and no account of our own: the browser talks to Google directly, and the app stays on static hosting. It is offered only when the build has a Google client ID (`VITE_GOOGLE_CLIENT_ID`); without one the rows are hidden and the app behaves as before.
+
+- **Connect.** Settings → Backup → "Google Drive" → "Connect Google Drive". The app sends the user to Google's consent page and back (a full-page redirect, which also works in an installed iOS app). It asks only for `drive.appdata`: a hidden folder that only this app can see, not the user's files. The returned access token lasts about an hour and there is no refresh token (that would need a server holding a secret). A `state` value is checked on return; a return with the wrong or missing `state` is ignored.
+- **One file.** Drive holds one file, `money-backup.zip`, in the app folder: the same ZIP as the Full backup. Saving replaces it. Files up to any size are sent with Drive's resumable upload (the simple upload stops at 5 MB).
+- **Automatic save.** While connected and the token is valid, any change (anything that counts toward the backup reminder) is saved to Drive about 5 seconds after the last one. A successful save counts as a backup: "Last backed up" is set and the change count resets, so the backup banner goes away. "Save to Drive now" saves at once.
+- **Token expired.** Saving pauses and Settings shows "Reconnect". Nothing is lost: the change count keeps growing and the next save after reconnecting carries everything.
+- **Another device wrote first.** The app remembers the Drive file's `modifiedTime` from its last save or restore. Before each save it reads the file's current `modifiedTime`. If a file exists that this device has not seen (a different time, or a file when this device never saved or restored one), it does not overwrite it. It stops saving and Settings shows "Drive has a newer backup from another device" with "Restore it" (replace this device's data) and "Replace it with this device".
+- **Restore.** "Restore from Google Drive" (Settings, and on the first-run screen) downloads the file and opens the usual import preview, with the same confirmation, settings, photos and Undo as importing a ZIP. After a restore, this device knows that file and saves over it from then on.
+- **Disconnect.** Forgets the token and the remembered file on this device. The file stays in Drive (the user can remove it from Drive's settings under "Manage apps").
+- **Failures.** A network or Drive error during an automatic save shows no toast and is retried on the next change; Settings shows "Last saved to Drive" so the user can see it is behind. "Save now" and "Restore" show an error toast when they fail.
