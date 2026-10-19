@@ -91,9 +91,9 @@ export interface Store {
   /**
    * Replaces everything with imported data, with an Undo. `automatic` is a newer Drive copy loaded on open:
    * its own message, and its Undo leaves this device marked as changed, so the next save asks instead of
-   * loading the copy again.
+   * loading the copy again. `message` replaces the usual toast text.
    */
-  applyImport: (data: LedgerData, rules: RecurringRule[], extras?: ImportExtras, options?: { automatic?: boolean }) => Promise<void>;
+  applyImport: (data: LedgerData, rules: RecurringRule[], extras?: ImportExtras, options?: { automatic?: boolean; message?: string }) => Promise<void>;
   eraseAll: () => Promise<void>;
   exportBackup: () => Promise<boolean>;
   /** One ZIP with the CSV data, the settings and the receipt photos. */
@@ -413,7 +413,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setOpeningCheck(extras?.settings.openingCents === undefined);
         notify({
           kind: 'success',
-          message: i18n.t(options?.automatic ? 'drive.loadedNewer' : 'import.done'),
+          message: options?.message ?? i18n.t(options?.automatic ? 'drive.loadedNewer' : 'import.done'),
           actionLabel: undo,
           onAction: () => {
             setOpeningCheck(false);

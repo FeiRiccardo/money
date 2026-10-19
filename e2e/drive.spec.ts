@@ -153,7 +153,7 @@ test.describe('two devices', () => {
     await expect.poll(() => notesInDrive(drive), { timeout: 15_000 }).toContain('Milk');
 
     await laptop.reload();
-    await expect(laptop.getByText('Loaded the latest data from Google Drive')).toBeVisible();
+    await expect(laptop.getByText('1 new Transaction loaded from Google Drive')).toBeVisible();
     await expect(laptop.locator('.tx-row', { hasText: 'Milk' })).toBeVisible();
   });
 

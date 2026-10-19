@@ -1,7 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createDriveBackup, type DriveFile } from '../data/driveBackup';
 import { importArchive } from '../domain/archive';
-import i18n from '../i18n';
+import { countChanges } from '../domain/changes';
+import i18n, { categoryName } from '../i18n';
 import { forgetToken, goToGoogle, GOOGLE_CLIENT_ID, storedToken, type Arrival } from './googleDrive';
 import { ImportFlow } from './ImportFlow';
 import { useStore } from './store';
@@ -43,6 +44,14 @@ function statusNow(): DriveStatus {
   const token = storedToken();
   if (!token) return 'disconnected';
   return token.expiresAt > Date.now() ? 'connected' : 'expired';
+}
+
+/** What the toast says after loading a newer copy: how many Transactions came and went. */
+function loadedMessage(added: number, removed: number): string {
+  if (added > 0 && removed > 0) return i18n.t('drive.loadedBoth', { added, removed });
+  if (added > 0) return i18n.t('drive.loadedAdded', { count: added });
+  if (removed > 0) return i18n.t('drive.loadedRemoved', { count: removed });
+  return i18n.t('drive.loadedNewer');
 }
 
 export function DriveProvider({ arrival, children }: { arrival: Arrival; children: ReactNode }) {
@@ -125,11 +134,12 @@ export function DriveProvider({ arrival, children }: { arrival: Arrival; childre
       if (!archive.ok || archive.preview.fatal) return;
       // Edited while downloading: ask instead.
       if (unsaved()) return conflictWith(loaded.file);
+      const { added, removed } = countChanges(storeRef.current.data, archive.preview.data, categoryName);
       await storeRef.current.applyImport(
         archive.preview.data,
         archive.preview.rules,
         { settings: archive.settings, photos: archive.attachments, driveFile: loaded.file },
-        { automatic: true },
+        { automatic: true, message: loadedMessage(added, removed) },
       );
     } finally {
       running.current = false;

@@ -335,7 +335,12 @@
     "connected": "Google Drive connected",
     "refused": "Google Drive was not connected.",
     "disconnected": "Google Drive disconnected. The backup stays in your Drive.",
-    "loadedNewer": "Loaded the latest data from Google Drive"
+    "loadedNewer": "Loaded the latest data from Google Drive",
+    "loadedAdded_one": "1 new Transaction loaded from Google Drive",
+    "loadedAdded_other": "{{count}} new Transactions loaded from Google Drive",
+    "loadedRemoved_one": "1 Transaction removed on your other device",
+    "loadedRemoved_other": "{{count}} Transactions removed on your other device",
+    "loadedBoth": "Loaded from Google Drive: {{added}} new or changed, {{removed}} removed"
   },
   "nav": {
     "home": "Home",
