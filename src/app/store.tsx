@@ -88,7 +88,12 @@ export interface Store {
   setOpeningBalance: (cents: number) => Promise<void>;
   setSortOrder: (order: SortOrder) => Promise<void>;
   startFresh: (openingCents: number) => Promise<void>;
-  applyImport: (data: LedgerData, rules: RecurringRule[], extras?: ImportExtras) => Promise<void>;
+  /**
+   * Replaces everything with imported data, with an Undo. `automatic` is a newer Drive copy loaded on open:
+   * its own message, and its Undo leaves this device marked as changed, so the next save asks instead of
+   * loading the copy again.
+   */
+  applyImport: (data: LedgerData, rules: RecurringRule[], extras?: ImportExtras, options?: { automatic?: boolean }) => Promise<void>;
   eraseAll: () => Promise<void>;
   exportBackup: () => Promise<boolean>;
   /** One ZIP with the CSV data, the settings and the receipt photos. */
@@ -96,10 +101,10 @@ export interface Store {
   /** The Full backup ZIP, as bytes. */
   buildArchive: () => Promise<Uint8Array>;
   /**
-   * Records a save to Google Drive. It counts as a backup: the changes it carried (`changesIncluded`, the count
-   * when the save started) come off the count, and any made while it was uploading stay.
+   * Records a save to Google Drive. It counts as a backup: the changes it carried (`included`, the counts when
+   * the save started) come off the counts, and any made while it was uploading stay.
    */
-  recordDriveSave: (file: DriveFile, changesIncluded: number) => Promise<void>;
+  recordDriveSave: (file: DriveFile, included: { backup: number; drive: number }) => Promise<void>;
   /** Forgets the Drive copy this device knew (Disconnect). */
   forgetDriveFile: () => Promise<void>;
   dismissBanner: (kind: 'backup' | 'install') => Promise<void>;
@@ -389,7 +394,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         });
       },
 
-      async applyImport(imported, importedRules, extras) {
+      async applyImport(imported, importedRules, extras, options) {
         const before = await ledgerRef.current!.load();
         const beforePhotos = await ledgerRef.current!.allAttachments();
         const photos = [...(extras?.photos ?? new Map<string, PhotoFile[]>())].flatMap(([transactionId, files]) =>
@@ -397,7 +402,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         );
         const result = await write(async (l) => {
           await l.replaceAll(imported, importedRules, photos);
-          const patch = { ...extras?.settings, ...(extras?.driveFile ? { driveFile: extras.driveFile } : {}) };
+          // From Drive: this device now holds exactly that copy.
+          const patch = { ...extras?.settings, ...(extras?.driveFile ? { driveFile: extras.driveFile, changesSinceDrive: 0 } : {}) };
           if (Object.keys(patch).length > 0) await l.updateSettings(patch);
         });
         if (!result.ok) return;
@@ -407,13 +413,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setOpeningCheck(extras?.settings.openingCents === undefined);
         notify({
           kind: 'success',
-          message: i18n.t('import.done'),
+          message: i18n.t(options?.automatic ? 'drive.loadedNewer' : 'import.done'),
           actionLabel: undo,
           onAction: () => {
             setOpeningCheck(false);
             void write(async (l) => {
               await l.replaceAll(before.data, before.rules, beforePhotos);
-              await l.updateSettings(before.settings);
+              await l.updateSettings(options?.automatic ? { ...before.settings, changesSinceDrive: 1 } : before.settings);
             });
           },
         });
@@ -456,14 +462,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return exportArchive(await archiveContent(), categoryName);
       },
 
-      async recordDriveSave(file, changesIncluded) {
+      async recordDriveSave(file, included) {
         await write(async (l) => {
           const now = (await l.load()).settings;
           await l.updateSettings({
             driveFile: file,
             driveSavedAt: Date.now(),
             lastBackupAt: Date.now(),
-            changesSinceBackup: Math.max(0, now.changesSinceBackup - changesIncluded),
+            changesSinceBackup: Math.max(0, now.changesSinceBackup - included.backup),
+            changesSinceDrive: Math.max(0, now.changesSinceDrive - included.drive),
           });
         });
       },

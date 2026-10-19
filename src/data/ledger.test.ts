@@ -704,3 +704,34 @@ describe('receipt photos: cleanup, import and erase', () => {
     expect(await ledger.attachmentCounts()).toEqual({});
   });
 });
+
+describe('changes not yet saved to Google Drive', () => {
+  it('counts every write, Undo included, because Drive may already hold what was undone', async () => {
+    const { ledger, saved } = await ledgerWithOneTransaction();
+    expect((await ledger.load()).settings.changesSinceDrive).toBe(1);
+
+    await ledger.updateSettings({ changesSinceDrive: 0 });
+    await ledger.undoAddTransaction(saved.id);
+    expect((await ledger.load()).settings.changesSinceDrive).toBe(1);
+  });
+
+  it('marks data imported from a file as not in Drive yet', async () => {
+    const { ledger } = await ledgerWithOneTransaction();
+    await ledger.updateSettings({ changesSinceDrive: 0 });
+    await ledger.replaceAll({ categories: [], transactions: [] });
+    expect((await ledger.load()).settings.changesSinceDrive).toBe(1);
+  });
+
+  it('starts from the backup count on a database saved before the Drive count existed', async () => {
+    const name = freshName();
+    const ledger = await openLedger(name, nameOf);
+    ledger.close();
+    const db = await openDB(name);
+    await db.put('meta', { ...DEFAULT_SETTINGS, changesSinceBackup: 4, changesSinceDrive: undefined }, 'settings');
+    db.close();
+
+    const reopened = await openLedger(name, nameOf);
+    expect((await reopened.load()).settings.changesSinceDrive).toBe(4);
+  });
+});
+

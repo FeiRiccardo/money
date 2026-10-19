@@ -72,6 +72,8 @@ export interface Settings {
   onboarded: boolean;
   lastBackupAt: number | null;
   changesSinceBackup: number;
+  /** Writes since the last save to Google Drive (every write, Undo included). */
+  changesSinceDrive: number;
   backupBannerHiddenUntil: number;
   installNudgeHiddenUntil: number;
   persistRequested: boolean;
@@ -95,6 +97,7 @@ export const DEFAULT_SETTINGS: Settings = {
   onboarded: false,
   lastBackupAt: null,
   changesSinceBackup: 0,
+  changesSinceDrive: 0,
   backupBannerHiddenUntil: 0,
   installNudgeHiddenUntil: 0,
   persistRequested: false,

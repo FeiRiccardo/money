@@ -108,10 +108,25 @@ async function markUsed(categories: Store, ids: string[]): Promise<void> {
   }
 }
 
-async function countChange(meta: Store, by: number): Promise<void> {
-  const stored = ((await meta.get('settings')) as Partial<Settings> | undefined) ?? {};
+/** Stored settings with defaults filled in. */
+function settingsFrom(stored: Partial<Settings> | undefined): Settings {
   const settings: Settings = { ...DEFAULT_SETTINGS, ...stored };
-  await meta.put({ ...settings, changesSinceBackup: Math.max(0, settings.changesSinceBackup + by) }, 'settings');
+  // A database from before the Drive count: start it from the backup count.
+  if (stored?.changesSinceDrive === undefined) settings.changesSinceDrive = settings.changesSinceBackup;
+  return settings;
+}
+
+async function countChange(meta: Store, by: number): Promise<void> {
+  const settings = settingsFrom((await meta.get('settings')) as Partial<Settings> | undefined);
+  await meta.put(
+    {
+      ...settings,
+      changesSinceBackup: Math.max(0, settings.changesSinceBackup + by),
+      // An Undo counts too: Drive may already hold what was undone.
+      changesSinceDrive: settings.changesSinceDrive + Math.abs(by),
+    },
+    'settings',
+  );
 }
 
 function retiredNames(carriers: Array<{ type: TxType; retired: string[] }>, type: TxType): string[] {
@@ -156,7 +171,7 @@ export async function openLedger(
       const transactions = (await db.getAll('transactions')) as Transaction[];
       const rules = (await db.getAll('rules')) as RecurringRule[];
       const stored = (await db.get('meta', 'settings')) as Partial<Settings> | undefined;
-      return { data: { categories, transactions }, rules, settings: { ...DEFAULT_SETTINGS, ...stored } };
+      return { data: { categories, transactions }, rules, settings: settingsFrom(stored) };
     },
 
     async seedStarterCategories() {
@@ -465,7 +480,7 @@ export async function openLedger(
     async updateSettings(patch) {
       const tx = db.transaction('meta', 'readwrite');
       const stored = ((await tx.store.get('settings')) as Partial<Settings> | undefined) ?? {};
-      const settings: Settings = { ...DEFAULT_SETTINGS, ...stored, ...patch };
+      const settings: Settings = { ...settingsFrom(stored), ...patch };
       await tx.store.put(settings, 'settings');
       await tx.done;
       return settings;
@@ -493,7 +508,8 @@ export async function openLedger(
       for (const r of rules) await tx.objectStore('rules').put(r);
       const stored = ((await tx.objectStore('meta').get('settings')) as Partial<Settings> | undefined) ?? {};
       await tx.objectStore('meta').put(
-        { ...DEFAULT_SETTINGS, ...stored, onboarded: true, changesSinceBackup: 0 },
+        // The imported data is not in Drive yet (a restore from Drive says otherwise right after).
+        { ...settingsFrom(stored), onboarded: true, changesSinceBackup: 0, changesSinceDrive: 1 },
         'settings',
       );
       await tx.done;

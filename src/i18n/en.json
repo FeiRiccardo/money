@@ -334,6 +334,7 @@
     "nothingToRestore": "There is no backup in Google Drive yet.",
     "connected": "Google Drive connected",
     "refused": "Google Drive was not connected.",
-    "disconnected": "Google Drive disconnected. The backup stays in your Drive."
+    "disconnected": "Google Drive disconnected. The backup stays in your Drive.",
+    "loadedNewer": "Loaded the latest data from Google Drive"
   }
 }

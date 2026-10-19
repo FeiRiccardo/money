@@ -11,6 +11,8 @@ export type DriveProblem = { kind: 'expired' } | { kind: 'failed' };
 
 export type SaveResult = { kind: 'saved'; file: DriveFile } | { kind: 'conflict'; remote: DriveFile } | DriveProblem;
 
+export type LatestResult = { kind: 'found'; file: DriveFile } | { kind: 'empty' } | DriveProblem;
+
 export type LoadResult = { kind: 'loaded'; file: DriveFile; bytes: Uint8Array } | { kind: 'empty' } | DriveProblem;
 
 export interface DriveBackup {
@@ -21,6 +23,8 @@ export interface DriveBackup {
    */
   save(bytes: Uint8Array, known: DriveFile | null): Promise<SaveResult>;
   load(): Promise<LoadResult>;
+  /** Which copy Drive holds, without downloading it. */
+  latest(): Promise<LatestResult>;
 }
 
 const API = 'https://www.googleapis.com';
@@ -93,6 +97,13 @@ export function createDriveBackup(token: string, fetchFn: typeof fetch = fetch):
         const seen = remote !== null && known !== null && remote.id === known.id && remote.modifiedTime === known.modifiedTime;
         if (remote && !seen) return { kind: 'conflict', remote };
         return { kind: 'saved', file: await upload(bytes, remote) };
+      });
+    },
+
+    latest() {
+      return guarded(async (): Promise<LatestResult> => {
+        const file = await current();
+        return file ? { kind: 'found', file } : { kind: 'empty' };
       });
     },
 

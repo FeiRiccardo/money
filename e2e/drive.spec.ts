@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { devices, expect, test, type Page } from '@playwright/test';
 import { strFromU8, unzipSync } from 'fflate';
 import { createFakeDrive } from '../src/data/fakeDrive';
 import { exportArchive } from '../src/domain/archive';
@@ -13,9 +13,8 @@ const CORS = {
   'access-control-expose-headers': 'location',
 };
 
-/** Google's consent page says yes at once, and Drive is the in-memory fake. */
-async function fakeGoogle(page: Page) {
-  const drive = createFakeDrive({ token: 'tok' });
+/** Google's consent page says yes at once, and Drive is the in-memory fake (shared when given, as by two devices). */
+async function fakeGoogle(page: Page, drive = createFakeDrive({ token: 'tok' })) {
   await page.route('https://accounts.google.com/**', (route) => {
     const asked = new URL(route.request().url());
     const back = `${asked.searchParams.get('redirect_uri')}#state=${asked.searchParams.get('state')}&access_token=tok&token_type=Bearer&expires_in=3599`;
@@ -125,4 +124,51 @@ test('does not overwrite a newer backup from another device until told to', asyn
   await page.getByRole('button', { name: 'Replace it with this device' }).click();
   await expect.poll(() => notesInDrive(drive)).toContain('Milk');
   expect(notesInDrive(drive)).not.toContain('From my phone');
+});
+
+test.describe('two devices', () => {
+  async function phoneAndLaptop(browser: import('@playwright/test').Browser, page: Page) {
+    const drive = await fakeGoogle(page);
+    const laptop = await (
+      await browser.newContext({ ...devices['Pixel 7'], baseURL: 'http://localhost:4173', serviceWorkers: 'block' })
+    ).newPage();
+    await fakeGoogle(laptop, drive);
+
+    // The phone saves to Drive, the laptop restores that copy.
+    await startFresh(page);
+    await addExpense(page, 'Bread');
+    await connect(page);
+    await expect.poll(() => notesInDrive(drive)).toContain('Bread');
+    await laptop.goto('/');
+    await laptop.getByRole('button', { name: 'Restore from Google Drive' }).click();
+    await laptop.getByRole('dialog', { name: 'Restore from Google Drive' }).getByRole('button', { name: 'Replace everything' }).click();
+    await expect(laptop.locator('.tx-row', { hasText: 'Bread' })).toBeVisible();
+    return { drive, laptop };
+  }
+
+  test('a change on one device is loaded by the other when it opens', async ({ browser, page }) => {
+    const { drive, laptop } = await phoneAndLaptop(browser, page);
+
+    await addExpense(page, 'Milk');
+    await expect.poll(() => notesInDrive(drive), { timeout: 15_000 }).toContain('Milk');
+
+    await laptop.reload();
+    await expect(laptop.getByText('Loaded the latest data from Google Drive')).toBeVisible();
+    await expect(laptop.locator('.tx-row', { hasText: 'Milk' })).toBeVisible();
+  });
+
+  test('a device with unsaved changes asks instead of loading the other copy', async ({ browser, page }) => {
+    const { drive, laptop } = await phoneAndLaptop(browser, page);
+
+    await addExpense(page, 'Milk');
+    await expect.poll(() => notesInDrive(drive), { timeout: 15_000 }).toContain('Milk');
+
+    // The laptop reopens before its own change reached Drive.
+    await addExpense(laptop, 'Eggs');
+    await laptop.reload();
+    await expect(laptop.getByText('Google Drive has a newer backup from another device. Check Settings.')).toBeVisible();
+    await expect(laptop.locator('.tx-row', { hasText: 'Eggs' })).toBeVisible();
+    await expect(laptop.locator('.tx-row', { hasText: 'Milk' })).toHaveCount(0);
+    expect(notesInDrive(drive)).toContain('Milk');
+  });
 });

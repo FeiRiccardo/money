@@ -53,6 +53,13 @@ describe('Drive backup', () => {
     expect(drive.appFiles().map((f) => [...f.bytes])).toEqual([[2]]);
   });
 
+  it('tells which copy Drive holds, without downloading it', async () => {
+    const { drive, backup } = setup();
+    expect(await backup.latest()).toEqual({ kind: 'empty' });
+    const theirs = drive.writeFromAnotherDevice('money-backup.zip', bytes(9));
+    expect(await backup.latest()).toEqual({ kind: 'found', file: theirs });
+  });
+
   it('finds nothing to restore in an empty Drive', async () => {
     expect(await setup().backup.load()).toEqual({ kind: 'empty' });
   });
@@ -62,6 +69,7 @@ describe('Drive backup', () => {
     drive.expireToken();
     expect(await backup.save(bytes(1), null)).toEqual({ kind: 'expired' });
     expect(await backup.load()).toEqual({ kind: 'expired' });
+    expect(await backup.latest()).toEqual({ kind: 'expired' });
   });
 
   it('reports a network failure without throwing', async () => {

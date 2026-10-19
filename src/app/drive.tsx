@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createDriveBackup, type DriveFile } from '../data/driveBackup';
+import { importArchive } from '../domain/archive';
 import i18n from '../i18n';
 import { forgetToken, goToGoogle, GOOGLE_CLIENT_ID, storedToken, type Arrival } from './googleDrive';
 import { ImportFlow } from './ImportFlow';
@@ -65,12 +66,17 @@ export function DriveProvider({ arrival, children }: { arrival: Arrival; childre
 
   const save = useCallback(async (manual: boolean, replace: DriveFile | null = null) => {
     const token = storedToken();
-    if (!token || running.current) return;
+    if (!token) return;
+    if (running.current) {
+      // A check of Drive is under way: try again once it is done.
+      window.setTimeout(() => void save(manual, replace), 1000);
+      return;
+    }
     running.current = true;
     if (manual) setBusy(true);
     try {
       const s = storeRef.current;
-      const included = s.settings.changesSinceBackup;
+      const included = { backup: s.settings.changesSinceBackup, drive: s.settings.changesSinceDrive };
       const result = await createDriveBackup(token.token).save(await s.buildArchive(), replace ?? s.settings.driveFile);
       if (result.kind === 'saved') {
         setConflict(null);
@@ -88,6 +94,45 @@ export function DriveProvider({ arrival, children }: { arrival: Arrival; childre
     } finally {
       running.current = false;
       if (manual) setBusy(false);
+    }
+  }, []);
+
+  /**
+   * On open and on coming back: if Drive holds a copy this device has not seen, load it when this device has
+   * nothing unsaved, otherwise show the conflict choice. Only the version is fetched unless a load is needed.
+   */
+  const check = useCallback(async () => {
+    const token = storedToken();
+    const known = storeRef.current.settings.driveFile;
+    // A device never linked to Drive is handled by its first save (which asks if Drive already has a copy).
+    if (!token || token.expiresAt <= Date.now() || running.current || !known || !storeRef.current.settings.onboarded) return;
+    running.current = true;
+    const unsaved = () => storeRef.current.settings.changesSinceDrive > 0;
+    const conflictWith = (file: DriveFile) => {
+      setConflict(file);
+      storeRef.current.notify({ kind: 'info', message: i18n.t('drive.conflictToast') });
+    };
+    try {
+      const backup = createDriveBackup(token.token);
+      const latest = await backup.latest();
+      if (latest.kind === 'expired') setStatus('expired');
+      if (latest.kind !== 'found' || (latest.file.id === known.id && latest.file.modifiedTime === known.modifiedTime)) return;
+      if (unsaved()) return conflictWith(latest.file);
+      const loaded = await backup.load();
+      if (loaded.kind !== 'loaded') return;
+      const archive = importArchive(loaded.bytes);
+      // A damaged copy is left alone; this device's data stays as it is.
+      if (!archive.ok || archive.preview.fatal) return;
+      // Edited while downloading: ask instead.
+      if (unsaved()) return conflictWith(loaded.file);
+      await storeRef.current.applyImport(
+        archive.preview.data,
+        archive.preview.rules,
+        { settings: archive.settings, photos: archive.attachments, driveFile: loaded.file },
+        { automatic: true },
+      );
+    } finally {
+      running.current = false;
     }
   }, []);
 
@@ -121,12 +166,24 @@ export function DriveProvider({ arrival, children }: { arrival: Arrival; childre
       void restore();
     } else {
       storeRef.current.notify({ kind: 'success', message: i18n.t('drive.connected') });
-      if (storeRef.current.settings.onboarded) void save(false);
+      // First link: save (it asks if Drive already has a copy). Reconnecting: the check below takes over.
+      if (storeRef.current.settings.onboarded && !storeRef.current.settings.driveFile) void save(false);
     }
   }, [ready, arrival, restore, save]);
 
+  // Look for a newer copy when the app opens, when Drive (re)connects, and when the app comes back.
+  useEffect(() => {
+    if (!ready || status !== 'connected' || !settings.onboarded) return;
+    void check();
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void check();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [ready, status, settings.onboarded, check]);
+
   // The automatic save, a few seconds after the last change.
-  const pending = settings.changesSinceBackup;
+  const pending = settings.changesSinceDrive;
   useEffect(() => {
     if (!ready || status !== 'connected' || conflict || !settings.onboarded || pending === 0) return;
     const timer = window.setTimeout(() => void save(false), SAVE_DELAY_MS);
