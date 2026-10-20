@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Transaction } from '../domain/types';
 import { CategoriesScreen } from './CategoriesScreen';
 import { ChartsScreen } from './ChartsScreen';
 import { FirstRun } from './FirstRun';
-import { monthOf, todayISO } from './format';
+import { dateTimeLabel, monthOf, todayISO } from './format';
 import { Home } from './Home';
 import { useDesktop } from './layout';
 import { OpeningBalanceDialog } from './OpeningBalanceDialog';
@@ -32,6 +32,25 @@ function Shell() {
   const [form, setForm] = useState<FormState | null>(null);
   const open = (next: Omit<FormState, 'key'>) => setForm((current) => ({ ...next, key: (current?.key ?? 0) + 1 }));
   const desktop = useDesktop();
+
+  // Wide screen keyboard shortcuts: N adds a Transaction, / opens Search. Ignored while typing or with the form open.
+  useEffect(() => {
+    if (!desktop || form) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented) return;
+      const target = e.target instanceof Element ? e.target : null;
+      if (target?.closest('input, textarea, select, [contenteditable="true"]') || document.querySelector('.dialog')) return;
+      if (e.key === 'n' || e.key === 'N') {
+        e.preventDefault();
+        open({});
+      } else if (e.key === '/') {
+        e.preventDefault();
+        setScreen('search');
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [desktop, form]);
 
   const screens = (
     <>
@@ -92,12 +111,24 @@ function Shell() {
   );
 }
 
+/** Line icons for the sidebar, drawn on a 24px grid. */
+const ICONS: Record<Screen, string> = {
+  home: 'M4 11l8-7 8 7M6 9.5V20h12V9.5',
+  search: 'M10.5 17a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13zM15.5 15.5L20 20',
+  charts: 'M5 20V10M12 20V4M19 20v-7',
+  recurring: 'M20 12a8 8 0 0 1-14 5.3M4 12a8 8 0 0 1 14-5.3M18 3v4h-4M6 21v-4h4',
+  categories: 'M3 12V4h8l10 10-8 8L3 12zM7.5 8.5h.01',
+  settings: 'M4 7h9M17 7h3M4 17h3M11 17h9M15 5v4M9 15v4',
+  report: '',
+};
+
 /** The wide-screen menu: every screen one click away, in place of the phone's icons and back buttons. */
 function Sidebar({ current, onGo }: { current: Screen; onGo: (screen: Screen) => void }) {
   const { t } = useTranslation();
-  const items: Array<[Screen, string]> = [
+  const store = useStore();
+  const items: Array<[Screen, string, string?]> = [
     ['home', t('nav.home')],
-    ['search', t('home.search')],
+    ['search', t('home.search'), '/'],
     ['charts', t('charts.open')],
     ['recurring', t('settings.recurring')],
     ['categories', t('settings.categories')],
@@ -111,11 +142,26 @@ function Sidebar({ current, onGo }: { current: Screen; onGo: (screen: Screen) =>
         <span className="side-logo" aria-hidden="true">€</span>
         {t('app.name')}
       </div>
-      {items.map(([screen, label]) => (
-        <button key={screen} className={active === screen ? 'on' : ''} aria-current={active === screen ? 'page' : undefined} onClick={() => onGo(screen)}>
+      {items.map(([screen, label, key]) => (
+        <button
+          key={screen}
+          className={active === screen ? 'on' : ''}
+          aria-current={active === screen ? 'page' : undefined}
+          title={key ? t('nav.shortcut', { key }) : undefined}
+          onClick={() => onGo(screen)}
+        >
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+            <path d={ICONS[screen]} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
           {label}
+          {key && <kbd aria-hidden="true">{key}</kbd>}
         </button>
       ))}
+      <span className="spacer" />
+      <p className="side-foot muted small">
+        {t('settings.lastBackup')}:{' '}
+        {store.settings.lastBackupAt === null ? t('settings.never') : dateTimeLabel(store.settings.lastBackupAt, store.language)}
+      </p>
     </nav>
   );
 }

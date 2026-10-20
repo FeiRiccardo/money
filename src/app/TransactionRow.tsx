@@ -23,7 +23,10 @@ export function TransactionRow({ tx, onOpen, showDate = false }: { tx: Transacti
   const chips = categoryChips(tx, data);
   return (
     <button className="tx-row" onClick={() => onOpen(tx)}>
-      <div>
+      <span className={`tx-avatar ${tx.type}`} aria-hidden="true">
+        {(chips[0]?.name ?? tx.note).charAt(0).toUpperCase()}
+      </span>
+      <div className="tx-main">
         <div className="tx-title">
           {tx.ruleId && (
             <span className="repeat-mark" role="img" aria-label={t('recurring.mark')} title={t('recurring.mark')}>
@@ -38,7 +41,7 @@ export function TransactionRow({ tx, onOpen, showDate = false }: { tx: Transacti
             </span>
           )}
         </div>
-        {showDate && <div className="muted small">{dayLabel(tx.date, language)} {tx.date.slice(0, 4)}</div>}
+        {showDate && <div className="muted small tx-date">{dayLabel(tx.date, language)} {tx.date.slice(0, 4)}</div>}
         <div className="tags">
           {chips.map((c) => (
             <span key={c.key} className={`tag ${c.retired ? 'retired' : ''}`}>

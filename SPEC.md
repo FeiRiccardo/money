@@ -326,7 +326,17 @@ An optional copy of the Full backup kept in the user's own Google Drive, so the 
 
 On a screen at least 1000 px wide (`src/app/layout.ts`) the app uses a desktop layout; narrower screens, phones included, keep the phone layout unchanged, and resizing the window switches between them.
 
-- A **sidebar** on the left: Home, Search, Charts, Recurring, Categories, Settings, with the current one highlighted. It replaces Home's icons and the screens' back arrows (the monthly report counts as Home). Charts opened from the sidebar starts at the current month.
-- **Home** shows the month controls, the Balance and a "+ Add a Transaction" button in one header, then the Transactions list and the Summary side by side (no tabs, no floating + button). The backup and install banners sit above the list.
-- Other screens use a centred column up to 880 px wide.
-- The **Transaction form** opens as a centred panel over the dimmed page (up to 600 px wide), and Escape closes it like ✕ (a dialog opened from the form closes first). Dialogs are centred, up to 520 px wide. Toasts sit at the bottom right.
+- It is denser than the phone layout and sized for a mouse: 14 px text, smaller buttons and fields, hover states.
+- A **sidebar** on the left: Home, Search, Charts, Recurring, Categories, Settings, each with an icon, the current one highlighted, and "Last backed up" at the bottom. It replaces Home's icons and the screens' back arrows (the monthly report counts as Home). Charts opened from the sidebar starts at the current month.
+- **Keyboard shortcuts**: N opens a new Transaction and / opens Search. They are ignored while typing in a field, while the form or a dialog is open, and with Ctrl, Alt or Cmd held. The Add button and the Search item show their key.
+- **Home** has a toolbar with the month controls (plus "This month" when another month is shown), a Charts button and "+ Add a Transaction". Below it: the backup and install banners, then four figures in a row (Balance, and the month's Income, Expenses and Net), then the Transactions next to the breakdown by Category and the Monthly report button (no tabs, no floating + button). The page scrolls as one; the breakdown stays in view.
+- **Transactions show as a table**: one line each, with Description, Categories and Amount columns under a header row, and a Date column first when the list is not grouped by day (on Home sorted by amount, and in Search).
+- Other screens use a centred column up to 960 px wide with a toolbar heading; Settings groups its rows into cards, and Search puts its filters on one line.
+- The **Transaction form** opens as a centred panel over the dimmed page (up to 560 px wide), and Escape closes it like ✕ (a dialog opened from the form closes first). Dialogs are centred, up to 480 px wide. Toasts sit at the bottom right.
+
+## 16. Look
+
+The whole app, on phones and on wide screens, uses one flat palette, "Stormy Morning": ink #384959, blue-gray #6A89A7, sky #88BDF2 and mist #BDDDFC (tokens at the top of `src/styles.css`). Text tones are darkened slightly where needed to stay readable (at least 4.5:1); Income stays green and Expense red. Dark mode uses the same hues on a dark ink background. The app icon and the browser theme colour use the same palette.
+
+- Flat: no gradients, no borders on cards, shadows only on the + button, dialogs and toasts.
+- On a phone, Home has the Balance in a solid ink card with the Search, Charts and Settings icons, the Transactions/Summary switch as a segmented control, and the Transactions in rounded cards (one per day) with the first Category's initial on the left. The Summary lines, Settings rows and lists are rounded cards too.

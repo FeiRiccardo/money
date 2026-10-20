@@ -59,8 +59,8 @@ export function Home({ onAdd, onEdit, onSettings, onSearch, onCharts, onReport }
   const noTransactionsAtAll = data.transactions.length === 0;
 
   const addButton = (
-    <button className="btn primary add-btn" onClick={onAdd}>
-      + {t('home.add')}
+    <button className="btn primary add-btn" onClick={onAdd} title={t('nav.shortcut', { key: 'N' })}>
+      + {t('home.add')} <kbd aria-hidden="true">N</kbd>
     </button>
   );
 
@@ -117,11 +117,24 @@ export function Home({ onAdd, onEdit, onSettings, onSearch, onCharts, onReport }
     <div className="list">
       {monthTransactions.length > 0 && (
         <div className="list-tools">
+          {desktop && <h2>{t('home.tabTransactions')}</h2>}
           <SortSelect value={settings.sortOrder} onChange={(order) => void store.setSortOrder(order)} />
         </div>
       )}
+      {monthTransactions.length > 0 && desktop && (
+        <div className={byDate ? 'list-cols' : 'list-cols dated'} aria-hidden="true">
+          {!byDate && <span>{t('home.colDate')}</span>}
+          <span>{t('home.colDescription')}</span>
+          <span>{t('home.colCategories')}</span>
+          <span>{t('home.colAmount')}</span>
+        </div>
+      )}
       {monthTransactions.length === 0 && (
-        <p className="empty">{noTransactionsAtAll ? t('home.emptyNone') : t('home.emptyMonth')}</p>
+        <p className="empty">
+          {noTransactionsAtAll
+            ? t(desktop ? 'home.emptyNoneDesk' : 'home.emptyNone')
+            : t(desktop ? 'home.emptyMonthDesk' : 'home.emptyMonth')}
+        </p>
       )}
 
       {byDate &&
@@ -145,26 +158,30 @@ export function Home({ onAdd, onEdit, onSettings, onSearch, onCharts, onReport }
     </div>
   );
 
+  const totals = (
+    <div className="totals">
+      <div>
+        <small className="muted">{t('summary.income')}</small>
+        <b className="income amount" data-testid="sum-income">{money(summary.incomeCents)}</b>
+      </div>
+      <div>
+        <small className="muted">{t('summary.expenses')}</small>
+        <b className="expense amount" data-testid="sum-expenses">{money(summary.expenseCents)}</b>
+      </div>
+      <div>
+        <small className="muted">{t('summary.net')}</small>
+        <b className="amount" data-testid="sum-net">{money(summary.netCents)}</b>
+      </div>
+    </div>
+  );
+
   const summaryPanel = (
     <div className="summary">
       {monthTransactions.length === 0 ? (
         <p className="empty">{t('home.emptySummary')}</p>
       ) : (
         <>
-          <div className="totals">
-            <div>
-              <small className="muted">{t('summary.income')}</small>
-              <b className="income amount" data-testid="sum-income">{money(summary.incomeCents)}</b>
-            </div>
-            <div>
-              <small className="muted">{t('summary.expenses')}</small>
-              <b className="expense amount" data-testid="sum-expenses">{money(summary.expenseCents)}</b>
-            </div>
-            <div>
-              <small className="muted">{t('summary.net')}</small>
-              <b className="amount" data-testid="sum-net">{money(summary.netCents)}</b>
-            </div>
-          </div>
+          {!desktop && totals}
           <h3>{t('summary.expensesByCategory')}</h3>
           <Lines lines={summary.expenseLines} money={money} />
           <h3>{t('summary.incomeByCategory')}</h3>
@@ -177,6 +194,52 @@ export function Home({ onAdd, onEdit, onSettings, onSearch, onCharts, onReport }
       )}
     </div>
   );
+
+  if (desktop)
+    // Wide screen: a toolbar, the month's figures in a row, then the Transactions table next to the breakdown.
+    // The sidebar takes the place of the phone's icons.
+    return (
+      <div className="screen home">
+        <header className="page-head">
+          <div className="month-row">
+            <button className="icon-btn" aria-label={t('home.previousMonth')} onClick={() => setMonth(shiftMonth(month, -1))}>
+              ‹
+            </button>
+            <h1>{monthLabel(month, language)}</h1>
+            <button className="icon-btn" aria-label={t('home.nextMonth')} onClick={() => setMonth(shiftMonth(month, 1))}>
+              ›
+            </button>
+            {month !== monthOf(todayISO()) && (
+              <button className="btn small-btn" onClick={() => setMonth(monthOf(todayISO()))}>
+                {t('home.thisMonth')}
+              </button>
+            )}
+          </div>
+          <div className="head-actions">
+            <button className="btn" onClick={() => onCharts(month)}>
+              {t('charts.open')}
+            </button>
+            {addButton}
+          </div>
+        </header>
+        <div className="scroll home-body">
+          {banners}
+          <div className="kpis">
+            <div className="kpi">
+              <small className="muted">{t('home.balance')}</small>
+              <b className="amount" data-testid="balance">
+                {money(balance(data, settings.openingCents))}
+              </b>
+            </div>
+            {totals}
+          </div>
+          <div className="home-cols">
+            {list}
+            <aside className="side-panel">{summaryPanel}</aside>
+          </div>
+        </div>
+      </div>
+    );
 
   return (
     <div className="screen home">
@@ -197,45 +260,32 @@ export function Home({ onAdd, onEdit, onSettings, onSearch, onCharts, onReport }
               {money(balance(data, settings.openingCents))}
             </b>
           </div>
-          {desktop ? addButton : icons}
+          {icons}
         </div>
       </header>
 
-      {desktop ? (
-        // Wide screen: the sidebar has the icons' places, and both panels show at once.
-        <div className="home-cols">
-          <div className="scroll">
+      <div className="tabs" role="tablist">
+        <button role="tab" aria-selected={tab === 'transactions'} className={tab === 'transactions' ? 'on' : ''} onClick={() => setTab('transactions')}>
+          {t('home.tabTransactions')}
+        </button>
+        <button role="tab" aria-selected={tab === 'summary'} className={tab === 'summary' ? 'on' : ''} onClick={() => setTab('summary')}>
+          {t('home.tabSummary')}
+        </button>
+      </div>
+      <div className="scroll">
+        {tab === 'transactions' && (
+          <>
             {banners}
             {list}
-          </div>
-          <div className="scroll side-panel">{summaryPanel}</div>
-        </div>
-      ) : (
-        <>
-          <div className="tabs" role="tablist">
-            <button role="tab" aria-selected={tab === 'transactions'} className={tab === 'transactions' ? 'on' : ''} onClick={() => setTab('transactions')}>
-              {t('home.tabTransactions')}
-            </button>
-            <button role="tab" aria-selected={tab === 'summary'} className={tab === 'summary' ? 'on' : ''} onClick={() => setTab('summary')}>
-              {t('home.tabSummary')}
-            </button>
-          </div>
-          <div className="scroll">
-            {tab === 'transactions' && (
-              <>
-                {banners}
-                {list}
-              </>
-            )}
-            {tab === 'summary' && summaryPanel}
-          </div>
-          <button className="fab" aria-label={t('home.add')} onClick={onAdd}>
-            <svg className="fab-icon" viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
-              <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" />
-            </svg>
-          </button>
-        </>
-      )}
+          </>
+        )}
+        {tab === 'summary' && summaryPanel}
+      </div>
+      <button className="fab" aria-label={t('home.add')} onClick={onAdd}>
+        <svg className="fab-icon" viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
+          <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" />
+        </svg>
+      </button>
     </div>
   );
 }

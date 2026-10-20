@@ -1,4 +1,4 @@
-// The app icon: a white coin with a blue euro sign on a blue gradient. A 512x512 full-bleed square
+// The app icon, flat in the app's palette: a mist-blue coin with an ink euro sign on an ink square. A 512x512 full-bleed square
 // with the artwork inside the central 80% "safe zone", so the same image serves as a normal,
 // maskable and Apple touch icon. `npm run icons` renders it to the PNG sizes in public/.
 
@@ -12,23 +12,18 @@ const euro = (cx, color) => {
   </g>`;
 };
 
-const art = `
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3b82f6"/><stop offset="1" stop-color="#1e40af"/></linearGradient>
-    <linearGradient id="coin" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#dbeafe"/></linearGradient>
-  </defs>`;
+const art = '';
 const coin = `
-  <circle cx="256" cy="268" r="186" fill="#0b1f5c" opacity=".28"/>
-  <circle cx="256" cy="256" r="186" fill="url(#coin)"/>
-  <circle cx="256" cy="256" r="156" fill="none" stroke="#2563eb" stroke-opacity=".25" stroke-width="8"/>
-  ${euro(270, '#1d4ed8')}`;
+  <circle cx="256" cy="256" r="186" fill="#bdddfc"/>
+  <circle cx="256" cy="256" r="156" fill="none" stroke="#6a89a7" stroke-opacity=".45" stroke-width="8"/>
+  ${euro(270, '#384959')}`;
 
 /** Full-bleed square, for the PNG icons. */
 export const squareSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">${art}
-  <rect width="512" height="512" fill="url(#bg)"/>${coin}
+  <rect width="512" height="512" fill="#384959"/>${coin}
 </svg>`;
 
 /** Rounded corners, for the browser-tab favicon. */
 export const faviconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">${art}
-  <rect width="512" height="512" rx="112" fill="url(#bg)"/>${coin}
+  <rect width="512" height="512" rx="112" fill="#384959"/>${coin}
 </svg>`;

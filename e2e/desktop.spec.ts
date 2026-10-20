@@ -39,9 +39,40 @@ test('the form is a panel over the page that Escape closes', async ({ page }) =>
   const form = page.getByRole('dialog', { name: 'New Transaction' });
   await expect(form).toBeVisible();
   const box = (await form.boundingBox())!;
-  expect(box.width).toBeLessThanOrEqual(600);
+  expect(box.width).toBeLessThanOrEqual(560);
 
   await page.keyboard.press('Escape');
+  await expect(form).toHaveCount(0);
+});
+
+test('N adds a Transaction, / opens Search, and the list is a one-line table', async ({ page }) => {
+  await startFresh(page);
+  await page.keyboard.press('n');
+  const form = page.getByRole('dialog', { name: 'New Transaction' });
+  await expect(form).toBeVisible();
+  // The key that opened the form is not typed into it.
+  await expect(page.getByLabel('Amount', { exact: true })).toHaveValue('');
+  await page.getByLabel('Amount', { exact: true }).fill('7');
+  await page.getByRole('button', { name: 'Groceries', exact: true }).click();
+  await page.getByPlaceholder('e.g. Coffee').fill('Milk');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(form).toHaveCount(0);
+
+  // Description, Categories and Amount on one line.
+  const row = page.locator('.tx-row', { hasText: 'Milk' });
+  const title = (await row.locator('.tx-title').boundingBox())!;
+  const tag = (await row.locator('.tag').boundingBox())!;
+  const amount = (await row.locator('.amount').boundingBox())!;
+  expect(Math.abs(title.y + title.height / 2 - (tag.y + tag.height / 2))).toBeLessThan(6);
+  expect(tag.x).toBeGreaterThan(title.x);
+  expect(amount.x).toBeGreaterThan(tag.x);
+  await expect(page.getByTestId('sum-expenses')).toHaveText('€7.00');
+
+  await page.keyboard.press('/');
+  await expect(page.getByRole('searchbox', { name: 'Search' })).toBeFocused();
+  // Typing in a field does not trigger the shortcuts.
+  await page.keyboard.type('n/');
+  await expect(page.getByRole('searchbox', { name: 'Search' })).toHaveValue('n/');
   await expect(form).toHaveCount(0);
 });
 

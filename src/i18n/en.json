@@ -45,7 +45,14 @@
     "emptySummary": "Add a Transaction to see this month's summary.",
     "retiredTag": "retired",
     "search": "Search",
-    "sort": "Sort"
+    "sort": "Sort",
+    "emptyNoneDesk": "Nothing here yet. Click Add a Transaction, or press N, to add your first expense or income.",
+    "emptyMonthDesk": "No Transactions this month. Click Add a Transaction, or press N, to add one.",
+    "colDescription": "Description",
+    "colCategories": "Categories",
+    "colAmount": "Amount",
+    "thisMonth": "This month",
+    "colDate": "Date"
   },
   "summary": {
     "income": "Income",
@@ -344,6 +351,7 @@
   },
   "nav": {
     "home": "Home",
-    "menu": "Main menu"
+    "menu": "Main menu",
+    "shortcut": "Keyboard shortcut: {{key}}"
   }
 }

@@ -45,7 +45,14 @@
     "emptySummary": "Aggiungi una transazione per vedere il riepilogo del mese.",
     "retiredTag": "eliminata",
     "search": "Cerca",
-    "sort": "Ordina"
+    "sort": "Ordina",
+    "emptyNoneDesk": "Ancora niente. Fai clic su Aggiungi una transazione, o premi N, per aggiungere la tua prima spesa o entrata.",
+    "emptyMonthDesk": "Nessuna transazione questo mese. Fai clic su Aggiungi una transazione, o premi N, per aggiungerne una.",
+    "colDescription": "Descrizione",
+    "colCategories": "Categorie",
+    "colAmount": "Importo",
+    "thisMonth": "Questo mese",
+    "colDate": "Data"
   },
   "summary": {
     "income": "Entrate",
@@ -351,6 +358,7 @@
   },
   "nav": {
     "home": "Home",
-    "menu": "Menu principale"
+    "menu": "Menu principale",
+    "shortcut": "Scorciatoia da tastiera: {{key}}"
   }
 }
