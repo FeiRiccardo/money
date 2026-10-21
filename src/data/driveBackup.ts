@@ -25,6 +25,8 @@ export interface DriveBackup {
   load(): Promise<LoadResult>;
   /** Which copy Drive holds, without downloading it. */
   latest(): Promise<LatestResult>;
+  /** The Google account's email address, or null if Drive cannot say. */
+  account(): Promise<string | null>;
 }
 
 const API = 'https://www.googleapis.com';
@@ -105,6 +107,16 @@ export function createDriveBackup(token: string, fetchFn: typeof fetch = fetch):
         const file = await current();
         return file ? { kind: 'found', file } : { kind: 'empty' };
       });
+    },
+
+    async account() {
+      const result = await guarded(async () => {
+        const body = (await (await call(`${API}/drive/v3/about?fields=user(emailAddress)`)).json()) as {
+          user?: { emailAddress?: string };
+        };
+        return body.user?.emailAddress ?? null;
+      });
+      return typeof result === 'string' ? result : null;
     },
 
     load() {

@@ -12,6 +12,16 @@ describe('consentUrl', () => {
     expect(url.searchParams.get('response_type')).toBe('token');
     expect(url.searchParams.get('scope')).toBe('https://www.googleapis.com/auth/drive.appdata');
     expect(url.searchParams.get('state')).toBe('s1');
+    expect(url.searchParams.has('prompt')).toBe(false);
+    expect(url.searchParams.has('login_hint')).toBe(false);
+  });
+
+  it('reconnects without showing anything, for the account used before', () => {
+    const url = new URL(
+      consentUrl({ clientId: 'abc', redirectUri: 'https://example.github.io/money/', state: 's2', silent: true, loginHint: 'me@example.com' }),
+    );
+    expect(url.searchParams.get('prompt')).toBe('none');
+    expect(url.searchParams.get('login_hint')).toBe('me@example.com');
   });
 });
 

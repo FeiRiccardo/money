@@ -7,8 +7,22 @@ const SAFETY_MS = 60_000;
 /**
  * Google's consent page for the token flow: Google sends the user back to `redirectUri` with the token in the
  * address fragment. A static site cannot keep a client secret, so there is no refresh token.
+ * `silent` asks Google to show nothing: it sends a new token at once if the user is still signed in and has
+ * agreed before, or an error otherwise. `loginHint` names the account, for browsers signed in to several.
  */
-export function consentUrl({ clientId, redirectUri, state }: { clientId: string; redirectUri: string; state: string }): string {
+export function consentUrl({
+  clientId,
+  redirectUri,
+  state,
+  silent = false,
+  loginHint,
+}: {
+  clientId: string;
+  redirectUri: string;
+  state: string;
+  silent?: boolean;
+  loginHint?: string;
+}): string {
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: redirectUri,
@@ -17,6 +31,8 @@ export function consentUrl({ clientId, redirectUri, state }: { clientId: string;
     state,
     include_granted_scopes: 'true',
   });
+  if (silent) params.set('prompt', 'none');
+  if (loginHint) params.set('login_hint', loginHint);
   return `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
 }
 

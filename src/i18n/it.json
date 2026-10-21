@@ -335,7 +335,7 @@
     "saveNow": "Salva su Drive ora",
     "autoHelp": "Collegato. Le modifiche vengono salvate su Drive automaticamente.",
     "reconnect": "Ricollega Google Drive",
-    "expiredHelp": "Google chiede di accedere di nuovo ogni ora. Il salvataggio automatico è in pausa finché non lo fai.",
+    "expiredHelp": "Google lo richiede ogni ora. L'app si ricollega da sola quando si apre; se non ci è riuscita, tocca qui.",
     "disconnect": "Scollega Google Drive",
     "lastSaved": "Ultimo salvataggio su Drive",
     "conflict": "Google Drive ha un backup più recente da un altro dispositivo. Il salvataggio automatico è in pausa.",
@@ -354,7 +354,9 @@
     "loadedAdded_other": "{{count}} nuove transazioni caricate da Google Drive",
     "loadedRemoved_one": "1 transazione eliminata sull'altro dispositivo",
     "loadedRemoved_other": "{{count}} transazioni eliminate sull'altro dispositivo",
-    "loadedBoth": "Caricato da Google Drive: {{added}} nuove o modificate, {{removed}} eliminate"
+    "loadedBoth": "Caricato da Google Drive: {{added}} nuove o modificate, {{removed}} eliminate",
+    "autoReconnectFailed": "Google Drive non è riuscito a ricollegarsi da solo. Il salvataggio automatico è in pausa.",
+    "reconnectShort": "Ricollega"
   },
   "nav": {
     "home": "Home",

@@ -328,7 +328,7 @@
     "saveNow": "Save to Drive now",
     "autoHelp": "Connected. Changes are saved to Drive automatically.",
     "reconnect": "Reconnect Google Drive",
-    "expiredHelp": "Google asks you to sign in again every hour. Automatic saving is paused until you do.",
+    "expiredHelp": "Google asks again every hour. The app reconnects by itself when it opens; if it could not, tap here.",
     "disconnect": "Disconnect Google Drive",
     "lastSaved": "Last saved to Drive",
     "conflict": "Google Drive has a newer backup from another device. Automatic saving is paused.",
@@ -347,7 +347,9 @@
     "loadedAdded_other": "{{count}} new Transactions loaded from Google Drive",
     "loadedRemoved_one": "1 Transaction removed on your other device",
     "loadedRemoved_other": "{{count}} Transactions removed on your other device",
-    "loadedBoth": "Loaded from Google Drive: {{added}} new or changed, {{removed}} removed"
+    "loadedBoth": "Loaded from Google Drive: {{added}} new or changed, {{removed}} removed",
+    "autoReconnectFailed": "Google Drive could not reconnect by itself. Automatic saving is paused.",
+    "reconnectShort": "Reconnect"
   },
   "nav": {
     "home": "Home",

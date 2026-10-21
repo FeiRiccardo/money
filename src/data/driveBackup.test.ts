@@ -72,6 +72,12 @@ describe('Drive backup', () => {
     expect(await backup.latest()).toEqual({ kind: 'expired' });
   });
 
+  it('tells which Google account it is saving to', async () => {
+    const { backup } = setup();
+    expect(await backup.account()).toBe('me@example.com');
+    expect(await createDriveBackup('old', createFakeDrive({ token: 'tok' }).fetch).account()).toBeNull();
+  });
+
   it('reports a network failure without throwing', async () => {
     const offline = createDriveBackup('tok', () => Promise.reject(new TypeError('Failed to fetch')));
     expect(await offline.save(bytes(1), null)).toEqual({ kind: 'failed' });

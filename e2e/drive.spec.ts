@@ -92,6 +92,66 @@ test('connecting saves the data to Drive, and later changes are saved automatica
   expect(drive.appFiles()).toHaveLength(1);
 });
 
+/** Makes the stored token one that has run out, as an hour later. */
+async function expireToken(page: Page) {
+  await page.evaluate(() => {
+    const token = JSON.parse(localStorage.getItem('money.drive.token')!);
+    localStorage.setItem('money.drive.token', JSON.stringify({ ...token, expiresAt: Date.now() - 1000 }));
+  });
+}
+
+test('opening the app with an expired token reconnects by itself, for the same account', async ({ page }) => {
+  const drive = await fakeGoogle(page);
+  await startFresh(page);
+  await connect(page);
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('money.drive.account'))).toBe('"me@example.com"');
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await expect(page.getByTestId('drive-saved-at')).not.toContainText('Never');
+
+  const asked: URL[] = [];
+  page.on('request', (request) => {
+    if (request.url().startsWith('https://accounts.google.com/')) asked.push(new URL(request.url()));
+  });
+  await expireToken(page);
+  await page.reload();
+
+  await expect.poll(() => asked.length).toBe(1);
+  expect(asked[0].searchParams.get('prompt')).toBe('none');
+  expect(asked[0].searchParams.get('login_hint')).toBe('me@example.com');
+  await expect(page.getByTestId('balance')).toBeVisible();
+  await expect(page.getByText('Google Drive connected')).toHaveCount(0);
+
+  // Connected again: changes are saved without the user doing anything.
+  await addExpense(page, 'After reconnecting');
+  await expect.poll(() => notesInDrive(drive), { timeout: 15_000 }).toContain('After reconnecting');
+});
+
+test('when Google cannot reconnect silently, a toast offers Reconnect and the app does not keep trying', async ({ page }) => {
+  await fakeGoogle(page);
+  await startFresh(page);
+  await connect(page);
+
+  // Signed out of Google: a silent request comes back with an error.
+  let asked = 0;
+  await page.route('https://accounts.google.com/**', (route) => {
+    asked++;
+    const url = new URL(route.request().url());
+    const back = `${url.searchParams.get('redirect_uri')}#state=${url.searchParams.get('state')}&error=login_required`;
+    return route.fulfill({ contentType: 'text/html', body: `<script>location.replace(${JSON.stringify(back)})</script>` });
+  });
+  await expireToken(page);
+  await page.reload();
+
+  await expect(page.getByText('Google Drive could not reconnect by itself')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Reconnect', exact: true })).toBeVisible();
+  expect(asked).toBe(1);
+
+  await page.reload();
+  await expect(page.getByTestId('balance')).toBeVisible();
+  await page.waitForTimeout(2500);
+  expect(asked).toBe(1);
+});
+
 test('a new device restores the Drive backup from the first screen, then keeps saving over it', async ({ page }) => {
   const drive = await fakeGoogle(page);
   drive.writeFromAnotherDevice('money-backup.zip', backupWith('From my phone'));

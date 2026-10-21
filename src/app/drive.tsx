@@ -3,12 +3,24 @@ import { createDriveBackup, type DriveFile } from '../data/driveBackup';
 import { importArchive } from '../domain/archive';
 import { countChanges } from '../domain/changes';
 import i18n, { categoryName } from '../i18n';
-import { forgetToken, goToGoogle, GOOGLE_CLIENT_ID, storedToken, type Arrival } from './googleDrive';
+import {
+  forgetToken,
+  goToGoogle,
+  GOOGLE_CLIENT_ID,
+  maySilentlyReconnect,
+  rememberAccount,
+  storedAccount,
+  storedToken,
+  type Arrival,
+} from './googleDrive';
 import { ImportFlow } from './ImportFlow';
 import { useStore } from './store';
 
 /** How long after the last change the automatic save waits, so a burst of edits is one upload. */
 const SAVE_DELAY_MS = 5000;
+
+/** How long after opening the app waits before reconnecting, so start-up writes (recurring rules) finish first. */
+const RECONNECT_DELAY_MS = 1500;
 
 /**
  * - `unavailable`: the build has no Google client ID, so nothing is shown.
@@ -170,16 +182,57 @@ export function DriveProvider({ arrival, children }: { arrival: Arrival; childre
   useEffect(() => {
     if (!ready || handledArrival.current || arrival.kind === 'none') return;
     handledArrival.current = true;
-    if (arrival.kind === 'refused') {
+    if (arrival.kind === 'refused' && arrival.intent === 'reconnect') {
+      // Google could not hand a new token over silently (signed out, say): the user reconnects by hand.
+      storeRef.current.notify({
+        kind: 'info',
+        message: i18n.t('drive.autoReconnectFailed'),
+        actionLabel: i18n.t('drive.reconnectShort'),
+        onAction: () => goToGoogle('connect'),
+      });
+    } else if (arrival.kind === 'refused') {
       storeRef.current.notify({ kind: 'error', message: i18n.t('drive.refused') });
     } else if (arrival.intent === 'restore') {
       void restore();
+    } else if (arrival.intent === 'reconnect') {
+      // Back with a new token and nothing to say: the check and the automatic save below carry on.
     } else {
       storeRef.current.notify({ kind: 'success', message: i18n.t('drive.connected') });
       // First link: save (it asks if Drive already has a copy). Reconnecting: the check below takes over.
       if (storeRef.current.settings.onboarded && !storeRef.current.settings.driveFile) void save(false);
     }
   }, [ready, arrival, restore, save]);
+
+  // Remember which Google account Drive is connected to, so a silent reconnect asks for that one.
+  useEffect(() => {
+    const token = storedToken();
+    if (status !== 'connected' || !token || storedAccount()) return;
+    void createDriveBackup(token.token)
+      .account()
+      .then((email) => email && rememberAccount(email));
+  }, [status]);
+
+  // Reconnect by itself: when the app opens or comes back with a token that has run out, go to Google, which
+  // returns at once with a new one if the user is still signed in. Never while a form or dialog is open, so
+  // nothing being typed is lost, and not right after coming back from Google.
+  useEffect(() => {
+    if (!ready || !settings.onboarded || !GOOGLE_CLIENT_ID) return;
+    const reconnect = () => {
+      if (document.visibilityState !== 'visible' || document.querySelector('.overlay, .dialog')) return;
+      if (maySilentlyReconnect(Date.now())) goToGoogle('reconnect');
+    };
+    const timer = arrival.kind === 'none' ? window.setTimeout(reconnect, RECONNECT_DELAY_MS) : undefined;
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') reconnect();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+    // Only on opening and on coming back, not when the token runs out while the app is in use.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, settings.onboarded]);
 
   // Look for a newer copy when the app opens, when Drive (re)connects, and when the app comes back.
   useEffect(() => {

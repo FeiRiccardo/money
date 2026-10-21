@@ -59,6 +59,7 @@ export function createFakeDrive(options: { token: string }) {
     if (request.headers['authorization'] !== `Bearer ${token}`) return json(401, { error: { code: 401 } });
 
     const path = url.pathname;
+    if (request.method === 'GET' && path === '/drive/v3/about') return json(200, { user: { emailAddress: 'me@example.com' } });
     if (request.method === 'GET' && path === '/drive/v3/files') {
       if (url.searchParams.get('spaces') !== 'appDataFolder') return json(400, {});
       const name = /name\s*=\s*'([^']+)'/.exec(url.searchParams.get('q') ?? '')?.[1];
