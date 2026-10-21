@@ -79,3 +79,18 @@ describe('categoryComparison', () => {
     ]);
   });
 });
+
+describe('Not-counted Categories in the charts', () => {
+  const data: LedgerData = {
+    categories: [...categories, { ...cat('savings', 'expense', 'Savings'), uncounted: true }],
+    transactions: [tx('2026-10-03', 'expense', 1000, ['food']), tx('2026-10-04', 'expense', 50000, ['savings'])],
+  };
+
+  it('are left out of the monthly trend', () => {
+    expect(monthlySeries(data, '2026-10', 1)).toEqual([{ month: '2026-10', incomeCents: 0, expenseCents: 1000 }]);
+  });
+
+  it('are left out of the comparison with last month', () => {
+    expect(categoryComparison(data, '2026-10', 'expense', (c) => c.name).map((l) => l.name)).toEqual(['Food']);
+  });
+});

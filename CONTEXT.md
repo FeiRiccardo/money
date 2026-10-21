@@ -20,6 +20,10 @@ _Avoid_: Earning, inflow, revenue
 A flat, user-editable label used to classify Transactions. Expense and Income each have their own separate list of Categories. A Transaction can carry several, and its full amount counts toward each. A Category's name is unique within its type, and a Retired label keeps its name reserved.
 _Avoid_: Tag, bucket, label, sub-category
 
+**Not-counted Category**:
+A Category marked so its Transactions still change the Balance but are left out of the month's totals, the Category lines, the charts and the report totals; they are listed apart as "Not counted". For money moved rather than spent or earned, such as to or from savings. One Not-counted Category is enough to leave a whole Transaction out.
+_Avoid_: Excluded category, transfer category, hidden category
+
 **Retired label**:
 The frozen name of a deleted Category, kept as plain text on the Transactions that had it. It is not a Category: it is never offered when entering a new Transaction, and it still counts in the monthly summary.
 _Avoid_: Deleted category, archived category, orphan

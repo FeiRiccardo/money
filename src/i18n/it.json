@@ -61,7 +61,9 @@
     "expensesByCategory": "Uscite per categoria",
     "incomeByCategory": "Entrate per categoria",
     "overlap": "Le categorie si sovrappongono: una transazione conta in ciascuna delle sue categorie, quindi queste righe sommano più del totale reale qui sopra.",
-    "nothing": "Niente questo mese."
+    "nothing": "Niente questo mese.",
+    "notCounted": "Non conteggiate",
+    "notCountedHelp": "Cambiano il saldo ma sono escluse dai totali qui sopra."
   },
   "charts": {
     "title": "Grafici",
@@ -143,7 +145,11 @@
       "pipe": "Il carattere \"|\" non è consentito.",
       "duplicate": "Un'altra categoria ha già questo nome.",
       "reserved": "Questo nome appartiene a una categoria eliminata ancora presente su alcune transazioni."
-    }
+    },
+    "notCounted": "Non conteggiata in riepilogo e grafici",
+    "notCountedHelp": "Le sue transazioni cambiano comunque il saldo. Usala per soldi che sposti, non che spendi o guadagni, come verso o dai risparmi.",
+    "notCountedTag": "non conteggiata",
+    "deleteCountsAgain": "Dopo l’eliminazione tornano a contare nel riepilogo e nei grafici."
   },
   "settings": {
     "exportZip": "Backup completo (ZIP)",
@@ -324,7 +330,9 @@
     "openingSaved": "Saldo iniziale salvato",
     "erased": "Tutti i dati cancellati",
     "exportFailed": "Esportazione non riuscita. Riprova.",
-    "dismiss": "Chiudi"
+    "dismiss": "Chiudi",
+    "categoryCounted": "“{{name}}” torna a contare nel riepilogo",
+    "categoryNotCounted": "“{{name}}” non conta più nel riepilogo"
   },
   "drive": {
     "title": "Google Drive",

@@ -26,6 +26,7 @@ const sample: LedgerData = {
     cat('groceries', 'expense', 'Groceries', 'groceries'),
     cat('household', 'expense', 'Household'),
     cat('salary', 'income', 'Salary', 'salary'),
+    { ...cat('savings', 'expense', 'Savings'), uncounted: true },
   ],
   transactions: [
     tx('2026-10-12', 'income', 180000, ['salary'], [], 'October salary'),
@@ -54,10 +55,11 @@ describe('exportBackup: categories.csv', () => {
 
     expect(categoriesCsv).toBe(
       BOM +
-        'type,name,default_key\r\n' +
-        'expense,Groceries,groceries\r\n' +
-        'expense,Household,\r\n' +
-        'income,Salary,salary\r\n',
+        'type,name,default_key,not_counted\r\n' +
+        'expense,Groceries,groceries,\r\n' +
+        'expense,Household,,\r\n' +
+        'income,Salary,salary,\r\n' +
+        'expense,Savings,,yes\r\n',
     );
     expect(categoriesCsv).not.toContain('Gym');
   });
@@ -78,7 +80,7 @@ const seqId = () => `id${++n}`;
 function describeData(data: LedgerData) {
   const byId = new Map(data.categories.map((c) => [c.id, c]));
   return {
-    categories: data.categories.map((c) => ({ type: c.type, name: c.name, defaultKey: c.defaultKey })),
+    categories: data.categories.map((c) => ({ type: c.type, name: c.name, defaultKey: c.defaultKey, uncounted: c.uncounted })),
     transactions: data.transactions.map((t) => ({
       date: t.date,
       type: t.type,
@@ -97,9 +99,10 @@ describe('previewImport', () => {
     expect(preview.errors).toEqual([]);
     expect(describeData(preview.data)).toEqual({
       categories: [
-        { type: 'expense', name: 'Groceries', defaultKey: 'groceries' },
-        { type: 'expense', name: 'Household', defaultKey: undefined },
-        { type: 'income', name: 'Salary', defaultKey: 'salary' },
+        { type: 'expense', name: 'Groceries', defaultKey: 'groceries', uncounted: undefined },
+        { type: 'expense', name: 'Household', defaultKey: undefined, uncounted: undefined },
+        { type: 'income', name: 'Salary', defaultKey: 'salary', uncounted: undefined },
+        { type: 'expense', name: 'Savings', defaultKey: undefined, uncounted: true },
       ],
       transactions: [
         { date: '2026-10-12', type: 'income', cents: 180000, note: 'October salary', categories: ['Salary'], retired: [] },
@@ -186,6 +189,13 @@ describe('previewImport: Categories validation', () => {
     );
 
     expect(preview.data.transactions[0]?.retired).toEqual(['Food', 'Drink']);
+  });
+
+  it('still reads a Categories file from before the not_counted column: every Category counts', () => {
+    const preview = previewImport({ transactionsCsv, categoriesCsv: 'type,name,default_key\r\nexpense,Food,\r\n' }, seqId);
+
+    expect(preview.fatal).toBeUndefined();
+    expect(preview.data.categories.map((c) => [c.name, c.uncounted])).toEqual([['Food', undefined]]);
   });
 
   it('rejects a Categories file whose header is not the expected columns', () => {

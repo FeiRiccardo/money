@@ -41,7 +41,9 @@ export function CategoriesScreen({ onBack }: { onBack: () => void }) {
           {list.map((c) => (
             <li key={c.id}>
               <button className="list-row" onClick={() => setEditing(c)}>
-                {categoryName(c)}
+                <span>
+                  {categoryName(c)} {c.uncounted && <span className="tag">{t('categories.notCountedTag')}</span>}
+                </span>
                 <span className="muted">›</span>
               </button>
             </li>
@@ -68,13 +70,17 @@ function CategoryDialog({ type, category, onClose }: { type: TxType; category: C
     ? store.data.transactions.filter((tx) => tx.categoryIds.includes(category.id)).length
     : 0;
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [notCounted, setNotCounted] = useState(category?.uncounted === true);
 
   async function save() {
-    const unchanged = category !== null && name.trim() === categoryName(category);
-    if (unchanged) return onClose();
-    const result = category ? await store.renameCategory(category.id, name) : await store.createCategory(type, name);
-    if (result.ok) onClose();
-    else setError(result.reason);
+    let saved = category;
+    if (category === null || name.trim() !== categoryName(category)) {
+      const result = category ? await store.renameCategory(category.id, name) : await store.createCategory(type, name);
+      if (!result.ok) return setError(result.reason);
+      saved = result.category;
+    }
+    if (saved && notCounted !== (saved.uncounted === true)) await store.setCategoryCounted(saved.id, !notCounted);
+    onClose();
   }
 
   async function remove() {
@@ -100,8 +106,19 @@ function CategoryDialog({ type, category, onClose }: { type: TxType; category: C
       </label>
       {error && <div className="error">{t(`categories.errors.${error}`)}</div>}
 
+      <label className="check-row">
+        <input type="checkbox" checked={notCounted} onChange={(e) => setNotCounted(e.target.checked)} />
+        <span>
+          {t('categories.notCounted')}
+          <small className="muted block">{t('categories.notCountedHelp')}</small>
+        </span>
+      </label>
+
       {category && confirmDelete && (
-        <p className="warn">{affected === 0 ? t('categories.deleteInfoNone') : t('categories.deleteInfo', { count: affected })}</p>
+        <p className="warn">
+          {affected === 0 ? t('categories.deleteInfoNone') : t('categories.deleteInfo', { count: affected })}
+          {affected > 0 && category.uncounted && <> {t('categories.deleteCountsAgain')}</>}
+        </p>
       )}
 
       <div className="dialog-actions">

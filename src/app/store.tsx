@@ -83,6 +83,7 @@ export interface Store {
   stopRule: (id: string) => Promise<void>;
   createCategory: (type: TxType, name: string) => Promise<CategoryResult>;
   renameCategory: (id: string, name: string) => Promise<CategoryResult>;
+  setCategoryCounted: (id: string, counted: boolean) => Promise<void>;
   deleteCategory: (id: string) => Promise<void>;
   setLanguage: (language: Language) => Promise<void>;
   setOpeningBalance: (cents: number) => Promise<void>;
@@ -363,6 +364,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (!result.ok) return { ok: false, reason: 'empty' };
         if (result.value.ok) notify({ kind: 'success', message: i18n.t('toast.categoryRenamed', { name: categoryName(result.value.category) }) });
         return result.value;
+      },
+      async setCategoryCounted(id, counted) {
+        const result = await write((l) => l.setCategoryCounted(id, counted));
+        if (result.ok) {
+          const name = categoryName(result.value);
+          notify({ kind: 'success', message: i18n.t(counted ? 'toast.categoryCounted' : 'toast.categoryNotCounted', { name }) });
+        }
       },
       async deleteCategory(id) {
         const result = await write((l) => l.deleteCategory(id));

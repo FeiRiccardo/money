@@ -61,7 +61,9 @@
     "expensesByCategory": "Expenses by Category",
     "incomeByCategory": "Income by Category",
     "overlap": "Categories overlap: a Transaction counts in each of its Categories, so these lines add up to more than the real total above.",
-    "nothing": "Nothing this month."
+    "nothing": "Nothing this month.",
+    "notCounted": "Not counted",
+    "notCountedHelp": "These change the Balance but are left out of the totals above."
   },
   "charts": {
     "title": "Charts",
@@ -142,7 +144,11 @@
       "pipe": "The \"|\" character is not allowed.",
       "duplicate": "Another Category already has this name.",
       "reserved": "This name belongs to a deleted Category that is still on some Transactions."
-    }
+    },
+    "notCounted": "Not counted in summary and charts",
+    "notCountedHelp": "Its Transactions still change the Balance. Use it for money you move rather than spend or earn, like to or from savings.",
+    "notCountedTag": "not counted",
+    "deleteCountsAgain": "Once it is deleted, they count in the summary and charts again."
   },
   "settings": {
     "exportZip": "Full backup (ZIP)",
@@ -317,7 +323,9 @@
     "openingSaved": "Opening balance saved",
     "erased": "All data erased",
     "exportFailed": "Export failed. Please try again.",
-    "dismiss": "Dismiss"
+    "dismiss": "Dismiss",
+    "categoryCounted": "“{{name}}” counts in the summary again",
+    "categoryNotCounted": "“{{name}}” is no longer counted in the summary"
   },
   "drive": {
     "title": "Google Drive",

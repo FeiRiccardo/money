@@ -1,5 +1,5 @@
 import { sortTransactions } from './search';
-import { summarize, type SummaryLine } from './summary';
+import { summarize, type MonthSummary, type SummaryLine } from './summary';
 import type { Category, LedgerData, TxType } from './types';
 
 export interface ReportItem {
@@ -28,6 +28,8 @@ export interface MonthReport {
   endBalanceCents: number;
   expenseLines: SummaryLine[];
   incomeLines: SummaryLine[];
+  /** Not-counted Transactions by Category: outside the totals, inside the Balance. */
+  uncountedLines: MonthSummary['uncountedLines'];
   /** Days with Transactions, oldest first. */
   days: ReportDay[];
 }
@@ -73,9 +75,11 @@ export function buildReport(
     expenseCents: summary.expenseCents,
     netCents: summary.netCents,
     startBalanceCents,
-    endBalanceCents: startBalanceCents + summary.netCents,
+    // Every Transaction moves the Balance, Not-counted ones too.
+    endBalanceCents: startBalanceCents + inMonth.reduce((sum, t) => sum + signed(t), 0),
     expenseLines: summary.expenseLines,
     incomeLines: summary.incomeLines,
+    uncountedLines: summary.uncountedLines,
     days,
   };
 }

@@ -11,6 +11,11 @@ export interface Category {
   /** Set only while the Category is a still-translatable starter default. */
   defaultKey?: string;
   lastUsedAt: number;
+  /**
+   * Not counted: its Transactions still change the Balance but are left out of the summary, charts and report
+   * totals (money moved rather than spent or earned, such as to or from savings).
+   */
+  uncounted?: boolean;
 }
 
 export interface Transaction {

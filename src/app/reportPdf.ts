@@ -20,7 +20,7 @@ export function reportRows(report: MonthReport, language: Language, t: TFunction
 
   if (report.days.length === 0) return [...rows, { left: t('report.empty'), style: 'muted', space: 14 }];
 
-  const lines = (title: string, list: SummaryLine[]) =>
+  const lines = (title: string, list: Array<SummaryLine & { type?: 'expense' | 'income' }>) =>
     list.length === 0
       ? []
       : [
@@ -28,11 +28,12 @@ export function reportRows(report: MonthReport, language: Language, t: TFunction
           ...list.map((l) => ({
             left: l.retired ? `${l.name} (${t('home.retiredTag')})` : l.name,
             middle: String(l.count),
-            right: money(l.cents),
+            right: (l.type ? (l.type === 'income' ? '+' : '−') : '') + money(l.cents),
           })),
         ];
   rows.push(...lines(t('summary.expensesByCategory'), report.expenseLines));
   rows.push(...lines(t('summary.incomeByCategory'), report.incomeLines));
+  rows.push(...lines(t('summary.notCounted'), report.uncountedLines));
   rows.push({ left: t('summary.overlap'), style: 'muted', space: 6 });
 
   rows.push({ left: t('report.transactions'), style: 'heading', space: 14 });

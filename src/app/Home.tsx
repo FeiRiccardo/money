@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { activeBanner } from '../domain/reminders';
 import { sortTransactions } from '../domain/search';
 import { balance, summarize, type SummaryLine } from '../domain/summary';
-import type { Transaction } from '../domain/types';
+import type { Transaction, TxType } from '../domain/types';
 import { categoryName } from '../i18n';
 import { dayLabel, formatMoney, monthLabel, monthOf, shiftMonth, todayISO } from './format';
 import { useDesktop } from './layout';
@@ -186,6 +186,13 @@ export function Home({ onAdd, onEdit, onSettings, onSearch, onCharts, onReport }
           <Lines lines={summary.expenseLines} money={money} />
           <h3>{t('summary.incomeByCategory')}</h3>
           <Lines lines={summary.incomeLines} money={money} />
+          {summary.uncountedLines.length > 0 && (
+            <div data-testid="not-counted">
+              <h3>{t('summary.notCounted')}</h3>
+              <p className="muted small">{t('summary.notCountedHelp')}</p>
+              <Lines lines={summary.uncountedLines} money={money} />
+            </div>
+          )}
           <p className="muted small">{t('summary.overlap')}</p>
           <button className="btn wide" onClick={() => onReport(month)}>
             {t('home.report')}
@@ -290,7 +297,8 @@ export function Home({ onAdd, onEdit, onSettings, onSearch, onCharts, onReport }
   );
 }
 
-function Lines({ lines, money }: { lines: SummaryLine[]; money: (cents: number) => string }) {
+/** Category lines with bars. A line with a `type` (a Not-counted one) shows its amount with a sign. */
+function Lines({ lines, money }: { lines: Array<SummaryLine & { type?: TxType }>; money: (cents: number) => string }) {
   const { t } = useTranslation();
   if (lines.length === 0) return <p className="muted">{t('summary.nothing')}</p>;
   const max = Math.max(1, ...lines.map((l) => l.cents));
@@ -303,7 +311,10 @@ function Lines({ lines, money }: { lines: SummaryLine[]; money: (cents: number) 
               {line.name} {line.retired && <span className="tag retired">{t('home.retiredTag')}</span>}{' '}
               <span className="muted">· {line.count}</span>
             </span>
-            <span className="amount">{money(line.cents)}</span>
+            <span className={line.type ? `amount ${line.type}` : 'amount'}>
+              {line.type && (line.type === 'income' ? '+' : '−')}
+              {money(line.cents)}
+            </span>
           </div>
           <div className="bar">
             <div className="bar-fill" style={{ width: `${(line.cents / max) * 100}%` }} />

@@ -72,3 +72,20 @@ describe('buildReport', () => {
     expect(report.startBalanceCents).toBe(report.endBalanceCents);
   });
 });
+
+describe('buildReport with Not-counted Categories', () => {
+  const withSavings: LedgerData = {
+    categories: [...data.categories, { ...cat('save', 'expense', 'Savings'), uncounted: true }],
+    transactions: [...data.transactions, tx('s', '2026-10-10', 'expense', 30000, ['save'], 'To savings')],
+  };
+
+  it('leaves them out of the totals but not out of the Balance at the end of the month', () => {
+    const report = buildReport(withSavings, '2026-10', 0, nameOf);
+
+    expect(report.expenseCents).toBe(2200);
+    expect(report.netCents).toBe(50000 - 2200);
+    expect(report.endBalanceCents).toBe(report.startBalanceCents + 50000 - 2200 - 30000);
+    expect(report.uncountedLines.map((l) => l.name)).toEqual(['Savings']);
+    expect(report.days.flatMap((d) => d.items).map((i) => i.note)).toContain('To savings');
+  });
+});

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { buildReport } from '../domain/report';
 import type { SummaryLine } from '../domain/summary';
+import type { TxType } from '../domain/types';
 import { categoryName } from '../i18n';
 import { dayLabel, formatMoney, monthLabel } from './format';
 import { saveReportPdf } from './platform';
@@ -84,6 +85,7 @@ export function ReportScreen({ month, onBack }: { month: string; onBack: () => v
             <>
               <LineTable title={t('summary.expensesByCategory')} lines={report.expenseLines} money={money} />
               <LineTable title={t('summary.incomeByCategory')} lines={report.incomeLines} money={money} />
+              <LineTable title={t('summary.notCounted')} lines={report.uncountedLines} money={money} />
               <p className="muted small">{t('summary.overlap')}</p>
 
               <h3>{t('report.transactions')}</h3>
@@ -119,7 +121,15 @@ function DayRows({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-function LineTable({ title, lines, money }: { title: string; lines: SummaryLine[]; money: (cents: number) => string }) {
+function LineTable({
+  title,
+  lines,
+  money,
+}: {
+  title: string;
+  lines: Array<SummaryLine & { type?: TxType }>;
+  money: (cents: number) => string;
+}) {
   const { t } = useTranslation();
   if (lines.length === 0) return null;
   return (
@@ -133,7 +143,10 @@ function LineTable({ title, lines, money }: { title: string; lines: SummaryLine[
                 {line.name} {line.retired && <span className="muted">({t('home.retiredTag')})</span>}
               </td>
               <td className="muted small">{line.count}</td>
-              <td className="amount">{money(line.cents)}</td>
+              <td className={line.type ? `amount ${line.type}` : 'amount'}>
+                {line.type && (line.type === 'income' ? '+' : '−')}
+                {money(line.cents)}
+              </td>
             </tr>
           ))}
         </tbody>

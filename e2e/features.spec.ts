@@ -274,3 +274,39 @@ test.describe('recurring Transactions', () => {
     await expect(page.getByRole('button', { name: /Bus/ })).toBeVisible();
   });
 });
+
+test.describe('Not-counted Categories', () => {
+  test('take money from the Balance but stay out of the month totals, and are listed apart', async ({ page }) => {
+    await startFresh(page);
+    await page.getByRole('button', { name: 'Settings' }).click();
+    await page.getByRole('button', { name: /^Categories/ }).click();
+    await page.getByRole('button', { name: '+ New category' }).click();
+    await page.getByLabel('Name').fill('Savings');
+    await page.getByRole('checkbox', { name: /Not counted in summary and charts/ }).check();
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(page.getByRole('button', { name: /^Savings not counted/ })).toBeVisible();
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
+
+    await add(page, '20', ['Groceries'], 'Bread');
+    await add(page, '500', ['Savings'], 'To savings');
+
+    await expect(page.getByTestId('balance')).toHaveText('-€520.00');
+    await page.getByRole('tab', { name: 'Summary' }).click();
+    await expect(page.getByTestId('sum-expenses')).toHaveText('€20.00');
+    await expect(page.getByTestId('not-counted')).toContainText('Savings');
+    await expect(page.getByTestId('not-counted')).toContainText('−€500.00');
+
+    // Counted again: it joins the totals.
+    await page.getByRole('button', { name: 'Settings' }).click();
+    await page.getByRole('button', { name: /^Categories/ }).click();
+    await page.getByRole('button', { name: /^Savings/ }).click();
+    await page.getByRole('checkbox', { name: /Not counted/ }).uncheck();
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
+    await page.getByRole('tab', { name: 'Summary' }).click();
+    await expect(page.getByTestId('sum-expenses')).toHaveText('€520.00');
+    await expect(page.getByTestId('not-counted')).toHaveCount(0);
+  });
+});

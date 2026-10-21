@@ -46,8 +46,10 @@ export function exportBackup(
   );
   const transactionsCsv = BOM + ['date,type,amount,categories,note', ...rows].join(EOL) + EOL;
 
-  const categoryRows = data.categories.map((c) => [c.type, nameOf(c), c.defaultKey ?? ''].map(field).join(','));
-  const categoriesCsv = BOM + ['type,name,default_key', ...categoryRows].join(EOL) + EOL;
+  const categoryRows = data.categories.map((c) =>
+    [c.type, nameOf(c), c.defaultKey ?? '', c.uncounted ? 'yes' : ''].map(field).join(','),
+  );
+  const categoriesCsv = BOM + [CATEGORY_HEADER.join(','), ...categoryRows].join(EOL) + EOL;
 
   const recurringRows = rules.map((r) =>
     [r.type, formatCents(r.cents), namesOf(r.categoryIds, r.retired), r.note, r.frequency, r.startDate, r.endDate ?? '', r.nextDate]
@@ -115,7 +117,9 @@ export interface ImportPreview {
 
 const fold = (s: string) => s.trim().toLowerCase();
 const TRANSACTION_HEADER = ['date', 'type', 'amount', 'categories', 'note'];
-const CATEGORY_HEADER = ['type', 'name', 'default_key'];
+/** `not_counted` came later: a file without it (an older backup) is still read, with every Category counted. */
+const CATEGORY_HEADER = ['type', 'name', 'default_key', 'not_counted'];
+const OLD_CATEGORY_HEADER = ['type', 'name', 'default_key'];
 
 function isRealDate(value: string): boolean {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
@@ -133,7 +137,8 @@ export function previewImport(files: BackupFiles, newId: () => string = () => cr
   }
 
   const categoryRows = parseCsv(files.categoriesCsv);
-  if (categoryRows[0]?.join(',') !== CATEGORY_HEADER.join(',')) {
+  const categoryHeader = categoryRows[0]?.join(',');
+  if (categoryHeader !== CATEGORY_HEADER.join(',') && categoryHeader !== OLD_CATEGORY_HEADER.join(',')) {
     return { data: empty, rules: [], transactionRows: [], errors: [], fatal: 'categoriesColumns' };
   }
 
@@ -145,7 +150,7 @@ export function previewImport(files: BackupFiles, newId: () => string = () => cr
   const errors: ImportPreview['errors'] = [];
   const categories: Category[] = [];
   const seen: Record<TxType, string[]> = { expense: [], income: [] };
-  categoryRows.slice(1).forEach(([type, name, defaultKey], index) => {
+  categoryRows.slice(1).forEach(([type, name, defaultKey, notCounted], index) => {
     const row = index + 2;
     if (type !== 'expense' && type !== 'income') {
       errors.push({ file: 'categories', row, reason: 'invalidType' });
@@ -157,7 +162,14 @@ export function previewImport(files: BackupFiles, newId: () => string = () => cr
       return;
     }
     seen[type].push(checked.name);
-    categories.push({ id: newId(), type, name: checked.name, defaultKey: defaultKey ? defaultKey : undefined, lastUsedAt: 0 });
+    categories.push({
+      id: newId(),
+      type,
+      name: checked.name,
+      defaultKey: defaultKey ? defaultKey : undefined,
+      lastUsedAt: 0,
+      ...(notCounted === 'yes' ? { uncounted: true } : {}),
+    });
   });
   const idByName = new Map(categories.map((c) => [`${c.type}:${fold(c.name)}`, c.id]));
 

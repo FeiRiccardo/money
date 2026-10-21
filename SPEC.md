@@ -195,7 +195,7 @@ Two CSV files, plus a third when there are recurring rules, in a fixed dialect w
 
 **`transactions.csv`** columns: `date`, `type` (`expense` or `income`), `amount` (positive), `categories`, `note`. Several Categories in one cell are separated by `|`. There is no `id` column.
 
-**`categories.csv`** columns: `type`, `name`, `default_key`. `default_key` is blank for a custom Category and set (for example `groceries`) for a still-translatable starter default.
+**`categories.csv`** columns: `type`, `name`, `default_key`, `not_counted`. `default_key` is blank for a custom Category and set (for example `groceries`) for a still-translatable starter default. `not_counted` is `yes` for a Not-counted Category (section 17) and blank otherwise. A file without the `not_counted` column (an older backup) is still accepted, with every Category counted.
 
 **`recurring.csv`** (written only when there is at least one rule; optional on import) columns: `type`, `amount` (positive), `categories` (separated by `|`), `note`, `frequency` (`weekly`, `monthly` or `yearly`), `start_date`, `end_date` (blank if none), `next_date`. `next_date` is what prevents duplicates after a restore: nothing is created before that date. A blank `next_date` is read as the start date. The link between a rule and the Transactions it made is not exported, so after a restore older generated Transactions lose their ↻ mark but nothing is duplicated. Rows are validated like the others (type, amount, frequency, real dates, end date not before start date, at least one Category name); bad rows are skipped and listed.
 
@@ -341,3 +341,15 @@ The whole app, on phones and on wide screens, uses one flat palette, "Stormy Mor
 
 - Flat: no gradients, no borders on cards, shadows only on the + button, dialogs and toasts.
 - On a phone, Home has the Balance in a solid ink card with the Search, Charts and Settings icons, the Transactions/Summary switch as a segmented control, and the Transactions in rounded cards (one per day) with the first Category's initial on the left. The Summary lines, Settings rows and lists are rounded cards too.
+
+## 17. Not-counted Categories
+
+Some money leaves (or comes in) without being spending (or earning): moving it to savings, paying off a card, taking it back out of savings. A Category can be marked **Not counted** for this, in both Expense and Income.
+
+- **Setting it.** In Categories, the New and Edit Category dialog has a checkbox "Not counted in summary and charts", with the help text "Its Transactions still change the Balance. Use it for money you move rather than spend or earn, like to or from savings." The Category list shows a "not counted" tag next to it. Changing it shows a toast and counts as a change for the backup reminder and Google Drive.
+- **The Balance includes it.** A Transaction with a Not-counted Category changes the Balance like any other, and so do the report's start and end Balance.
+- **The statistics leave it out.** A Transaction with **any** Not-counted Category (even alongside counted ones) is left out of the month's Income, Expenses and Net, the "by Category" lines, the Charts (the trend and the comparison with last month) and the monthly report's totals. Its own lines still count every Category it has.
+- **Still visible.** The Summary and the monthly report (screen and PDF) list these Transactions apart under "Not counted", by Category, each amount with its sign (− for an Expense, + for an Income), with "These change the Balance but are left out of the totals above." The Transaction lists, Search and the day totals show them as usual.
+- **Deleting it.** Its name becomes a Retired label as usual, and a Retired label always counts, so these Transactions count in the summary again. The delete confirmation says so when the Category is used.
+- **Backups** keep the flag (`not_counted` in `categories.csv`, section 6), so it survives the CSV export, the Full backup and Google Drive.
+

@@ -131,6 +131,22 @@ describe('deleting a Transaction and Undo', () => {
   });
 });
 
+describe('Not counting a Category', () => {
+  it('sets and clears the flag, keeps a starter default translating, and counts a change', async () => {
+    const { ledger } = await ledgerWithOneTransaction();
+    const starter = (await ledger.load()).data.categories.find((c) => c.defaultKey === 'groceries')!;
+
+    const flagged = await ledger.setCategoryCounted(starter.id, false);
+    expect(flagged).toEqual({ ...starter, uncounted: true });
+    expect((await ledger.load()).data.categories.find((c) => c.id === starter.id)).toEqual({ ...starter, uncounted: true });
+
+    await ledger.setCategoryCounted(starter.id, true);
+    const { data, settings } = await ledger.load();
+    expect(data.categories.find((c) => c.id === starter.id)).toEqual(starter);
+    expect(settings.changesSinceBackup).toBe(3);
+  });
+});
+
 describe('creating a Category', () => {
   it('adds it at the front of the picker order for its type and counts a change', async () => {
     const { ledger } = await ledgerWithOneTransaction();

@@ -66,6 +66,8 @@ export interface Ledger {
   createCategory(type: TxType, name: string): Promise<CategoryResult>;
   /** A renamed starter default becomes a plain custom Category (it stops translating). */
   renameCategory(id: string, name: string): Promise<CategoryResult>;
+  /** Counts the Category in the summary and charts again, or stops counting it (it stays in the Balance). */
+  setCategoryCounted(id: string, counted: boolean): Promise<Category>;
   /** Removes the Category; its displayed name stays on its Transactions as a Retired label. */
   deleteCategory(id: string): Promise<CategoryDeletion>;
   restoreCategory(snapshot: CategoryDeletion): Promise<void>;
@@ -385,6 +387,16 @@ export async function openLedger(
       await countChange(tx.objectStore('meta'), 1);
       await tx.done;
       return { ok: true, category };
+    },
+
+    async setCategoryCounted(id, counted) {
+      const tx = db.transaction(['categories', 'meta'], 'readwrite');
+      const { uncounted: _old, ...rest } = (await tx.objectStore('categories').get(id)) as Category;
+      const category: Category = counted ? rest : { ...rest, uncounted: true };
+      await tx.objectStore('categories').put(category);
+      await countChange(tx.objectStore('meta'), 1);
+      await tx.done;
+      return category;
     },
 
     async deleteCategory(id) {
