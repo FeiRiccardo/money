@@ -9,13 +9,15 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      // The typefaces are kept for offline use along with the app itself.
+      workbox: { globPatterns: ['**/*.{js,css,html,woff2}'] },
       includeAssets: ['icon.svg', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'],
       manifest: {
         name: 'Money Tracker',
         short_name: 'Money',
         description: 'A simple personal money and expense tracker. Your data stays on this device.',
-        theme_color: '#384959',
-        background_color: '#f2f6fa',
+        theme_color: '#4a2fe0',
+        background_color: '#f4f2fb',
         display: 'standalone',
         orientation: 'portrait',
         start_url: './',

@@ -7,6 +7,9 @@ import { takeRedirect } from './app/googleDrive';
 import { StoreProvider } from './app/store';
 import { trackViewport } from './app/viewport';
 import './i18n';
+// The two typefaces ship with the app, so it never asks another server for them and works offline.
+import '@fontsource-variable/bricolage-grotesque';
+import '@fontsource-variable/figtree';
 import './styles.css';
 
 registerSW({ immediate: true });

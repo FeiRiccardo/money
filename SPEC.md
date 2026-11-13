@@ -337,10 +337,14 @@ On a screen at least 1000 px wide (`src/app/layout.ts`) the app uses a desktop l
 
 ## 16. Look
 
-The whole app, on phones and on wide screens, uses one flat palette, "Stormy Morning": ink #384959, blue-gray #6A89A7, sky #88BDF2 and mist #BDDDFC (tokens at the top of `src/styles.css`). Text tones are darkened slightly where needed to stay readable (at least 4.5:1); Income stays green and Expense red. Dark mode uses the same hues on a dark ink background. The app icon and the browser theme colour use the same palette.
+The whole app, on phones and on wide screens, uses one look, "Banknote" (tokens at the top of `src/styles.css`): iris violet #5A3FF0 on lilac paper #F4F2FB with ink #1C1636, and a coin gold #F5B83D used sparingly (the logo, the Undo in a toast, the second chart colour). Text tones keep at least 4.5:1; Income is green and Expense coral red. Dark mode uses the same hues on a night-violet background. The app icon (a gold coin on iris) and the browser theme colour use the same palette.
 
-- Flat: no gradients, no borders on cards, shadows only on the + button, dialogs and toasts.
-- On a phone, Home has the Balance in a solid ink card with the Search, Charts and Settings icons, the Transactions/Summary switch as a segmented control, and the Transactions in rounded cards (one per day) with the first Category's initial on the left. The Summary lines, Settings rows and lists are rounded cards too.
+- **One loud thing.** The Balance card is iris with two sets of fine concentric lines crossing, like the guilloche of a banknote, and a soft coloured glow under it. The + button and the primary buttons share its violet. Everything else is quiet: white cards with a faint shadow, pill-shaped chips, tabs and segmented controls.
+- **Type.** Bricolage Grotesque for the Balance, the amounts being typed, headings and the month's figures; Figtree for everything else. Both ship inside the app (no request to another server) and are kept for offline use. Section labels are sentence case, not capitals.
+- **Category colour.** The round initial beside a Transaction takes its hue from the first Category's name, so a Category always has the same colour; a Transfer's ⇄ is violet.
+- **Phone.** Home has the Balance card with the Search, Charts and Settings icons, the account buttons (the chosen one in ink), the Transactions/Summary switch, and the Transactions in rounded cards, one per day.
+- **Wide screen.** The sidebar is night ink in both themes, with the current screen highlighted in violet; the Balance figure keeps the banknote card, the other figures and the lists are white cards.
+- **Motion.** Only in answer to an action: forms, dialogs and toasts fade or slide in briefly, buttons press down slightly. All of it is off with "reduce motion".
 
 ## 17. Not-counted Categories
 
