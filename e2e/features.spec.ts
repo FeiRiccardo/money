@@ -231,7 +231,7 @@ test.describe('recurring Transactions', () => {
     });
     await page.getByRole('button', { name: 'Settings' }).click();
     await page.getByRole('button', { name: /^Export/ }).click();
-    await expect.poll(() => downloads.length).toBe(3);
+    await expect.poll(() => downloads.length).toBe(4);
 
     const fileName = (p: string) => p.split(/[\\/]/).pop()!;
     const recurring = downloads.find((p) => fileName(p).startsWith('recurring-'))!;
@@ -245,7 +245,8 @@ test.describe('recurring Transactions', () => {
     await page.getByTestId('import-files').setInputFiles(downloads);
     await expect(page.getByText('1 recurring rule will also be restored.')).toBeVisible();
     await page.getByRole('button', { name: 'Replace everything' }).click();
-    await page.getByRole('button', { name: 'Cancel' }).click();
+    // The Accounts file came along, so the Opening balance is known and nothing is asked.
+    await expect(page.getByRole('dialog', { name: 'Check your opening balance' })).toHaveCount(0);
 
     await page.getByRole('button', { name: 'Settings' }).click();
     await page.getByRole('button', { name: /^Recurring/ }).click();
@@ -263,12 +264,13 @@ test.describe('recurring Transactions', () => {
     });
     await page.getByRole('button', { name: 'Settings' }).click();
     await page.getByRole('button', { name: /^Export/ }).click();
-    await expect.poll(() => downloads.length).toBe(2); // no rules, so no third file
+    await expect.poll(() => downloads.length).toBe(3); // no rules, so no recurring file
 
     await page.getByRole('button', { name: /^Erase all data/ }).click();
     await page.getByRole('button', { name: 'Erase everything' }).click();
     await page.getByRole('button', { name: 'Restore from backup' }).click();
-    await page.getByTestId('import-files').setInputFiles(downloads);
+    // Only the Transactions and Categories files, as an older backup would have: the Opening balance is then unknown.
+    await page.getByTestId('import-files').setInputFiles(downloads.filter((p) => !p.includes('accounts-')));
     await page.getByRole('button', { name: 'Replace everything' }).click();
     await page.getByRole('button', { name: 'Cancel' }).click();
     await expect(page.getByRole('button', { name: /Bus/ })).toBeVisible();

@@ -123,15 +123,17 @@ test.describe('no tap-to-zoom on phones', () => {
     expect(await smallestInputFontSize(page)).toBeGreaterThanOrEqual(16);
   });
 
-  test('the Settings dialogs (opening balance, Category name) use at least 16px too', async ({ page }) => {
+  test('the Settings dialogs (account, Category name) use at least 16px too', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Start fresh' }).click();
     await page.getByRole('button', { name: 'Skip' }).click();
     await page.getByRole('button', { name: 'Settings' }).click();
 
-    await page.getByRole('button', { name: /^Opening balance/ }).click();
+    await page.getByRole('button', { name: /^Accounts/ }).click();
+    await page.getByRole('button', { name: /^Main account/ }).click();
     expect(await smallestInputFontSize(page)).toBeGreaterThanOrEqual(16);
     await page.getByRole('button', { name: 'Cancel' }).click();
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
 
     await page.getByRole('button', { name: /^Categories/ }).click();
     await page.getByRole('button', { name: '+ New category' }).click();
@@ -293,12 +295,14 @@ for (const [name, width, height] of [
     test('on the home screen sit above the + button', async ({ page }) => {
       await open(page);
       await page.getByRole('button', { name: 'Settings' }).click();
-      await page.getByRole('button', { name: /^Opening balance/ }).click();
-      await page.getByRole('dialog').getByRole('textbox').fill('5');
+      await page.getByRole('button', { name: /^Accounts/ }).click();
+      await page.getByRole('button', { name: /^Main account/ }).click();
+      await page.getByRole('dialog').getByLabel('Opening balance (€)').fill('5');
       await page.getByRole('dialog').getByRole('button', { name: 'Save' }).click();
       await page.getByRole('button', { name: 'Back', exact: true }).click();
+      await page.getByRole('button', { name: 'Back', exact: true }).click();
 
-      const toast = await page.getByRole('status').filter({ hasText: 'Opening balance saved' }).boundingBox();
+      const toast = await page.getByRole('status').filter({ hasText: 'Account “Main account” saved' }).boundingBox();
       const fab = await page.getByRole('button', { name: 'Add a Transaction' }).boundingBox();
       expect(toast!.y + toast!.height).toBeLessThanOrEqual(fab!.y);
     });

@@ -8,6 +8,7 @@ const rule = (
   over: Partial<RecurringRule> = {},
 ): RecurringRule => ({
   id: 'r1',
+  accountId: 'a1',
   type: 'expense',
   cents: 1000,
   categoryIds: [],

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Transaction } from '../domain/types';
+import { AccountsScreen } from './AccountsScreen';
 import { CategoriesScreen } from './CategoriesScreen';
 import { ChartsScreen } from './ChartsScreen';
 import { FirstRun } from './FirstRun';
@@ -14,13 +15,16 @@ import { SearchScreen } from './SearchScreen';
 import { SettingsScreen } from './SettingsScreen';
 import { useStore } from './store';
 import { TransactionForm, type Prefill } from './TransactionForm';
+import { TransferForm } from './TransferForm';
 import { SaveFailedDialog, ToastView } from './ui';
 
-type Screen = 'home' | 'settings' | 'categories' | 'recurring' | 'search' | 'charts' | 'report';
+type Screen = 'home' | 'settings' | 'accounts' | 'categories' | 'recurring' | 'search' | 'charts' | 'report';
 
 interface FormState {
   transaction?: Transaction;
   prefill?: Prefill;
+  /** Open the Transfer form (a new one, or the Transfer the Transaction is half of). */
+  transfer?: boolean;
   /** Changes when a new form replaces the open one (Duplicate), so the fields start over. */
   key: number;
 }
@@ -32,6 +36,8 @@ function Shell() {
   const [form, setForm] = useState<FormState | null>(null);
   const open = (next: Omit<FormState, 'key'>) => setForm((current) => ({ ...next, key: (current?.key ?? 0) + 1 }));
   const desktop = useDesktop();
+  /** A Transfer's halves open the Transfer form; any other Transaction the usual one. */
+  const edit = (transaction: Transaction) => open(transaction.transferId === undefined ? { transaction } : { transaction, transfer: true });
 
   // Wide screen keyboard shortcuts: N adds a Transaction, / opens Search. Ignored while typing or with the form open.
   useEffect(() => {
@@ -57,7 +63,7 @@ function Shell() {
       {screen === 'home' && (
         <Home
           onAdd={() => open({})}
-          onEdit={(transaction) => open({ transaction })}
+          onEdit={edit}
           onSettings={() => setScreen('settings')}
           onSearch={() => setScreen('search')}
           onReport={(month) => {
@@ -72,25 +78,31 @@ function Shell() {
       )}
       {screen === 'report' && <ReportScreen month={reportMonth} onBack={() => setScreen('home')} />}
       {screen === 'charts' && <ChartsScreen initialMonth={chartMonth} onBack={() => setScreen('home')} />}
-      {screen === 'search' && <SearchScreen onBack={() => setScreen('home')} onEdit={(transaction) => open({ transaction })} />}
+      {screen === 'search' && <SearchScreen onBack={() => setScreen('home')} onEdit={edit} />}
       {screen === 'settings' && (
         <SettingsScreen
           onBack={() => setScreen('home')}
+          onAccounts={() => setScreen('accounts')}
           onCategories={() => setScreen('categories')}
           onRecurring={() => setScreen('recurring')}
         />
       )}
+      {screen === 'accounts' && <AccountsScreen onBack={() => setScreen('settings')} />}
       {screen === 'categories' && <CategoriesScreen onBack={() => setScreen('settings')} />}
       {screen === 'recurring' && <RecurringScreen onBack={() => setScreen('settings')} />}
       {/* On a wide screen the form is a panel over the page: this dims and blocks the rest. */}
       {form && desktop && <div className="form-backdrop" />}
-      {form && (
+      {form && form.transfer && (
+        <TransferForm key={form.key} transaction={form.transaction} onClose={() => setForm(null)} onSwitch={() => open({})} />
+      )}
+      {form && !form.transfer && (
         <TransactionForm
           key={form.key}
           transaction={form.transaction}
           prefill={form.prefill}
           onClose={() => setForm(null)}
           onDuplicate={(prefill) => open({ prefill })}
+          onTransfer={() => open({ transfer: true })}
         />
       )}
     </>
@@ -117,6 +129,7 @@ const ICONS: Record<Screen, string> = {
   search: 'M10.5 17a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13zM15.5 15.5L20 20',
   charts: 'M5 20V10M12 20V4M19 20v-7',
   recurring: 'M20 12a8 8 0 0 1-14 5.3M4 12a8 8 0 0 1 14-5.3M18 3v4h-4M6 21v-4h4',
+  accounts: 'M3 7h18v12H3zM3 7l3-3h12l3 3M16 13h2',
   categories: 'M3 12V4h8l10 10-8 8L3 12zM7.5 8.5h.01',
   settings: 'M4 7h9M17 7h3M4 17h3M11 17h9M15 5v4M9 15v4',
   report: '',
@@ -131,6 +144,7 @@ function Sidebar({ current, onGo }: { current: Screen; onGo: (screen: Screen) =>
     ['search', t('home.search'), '/'],
     ['charts', t('charts.open')],
     ['recurring', t('settings.recurring')],
+    ['accounts', t('settings.accounts')],
     ['categories', t('settings.categories')],
     ['settings', t('settings.title')],
   ];

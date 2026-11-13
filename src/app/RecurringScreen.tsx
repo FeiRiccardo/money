@@ -81,7 +81,7 @@ export function RuleDialog({ rule, onClose }: { rule: RecurringRule; onClose: ()
   async function save() {
     if (!valid || cents === null) return;
     const ok = await store.updateRule(rule.id, {
-      type: rule.type, cents, categoryIds: selected, retired, note: note.trim(), frequency,
+      accountId: rule.accountId, type: rule.type, cents, categoryIds: selected, retired, note: note.trim(), frequency,
       startDate: rule.startDate, endDate: endDate === '' ? null : endDate, nextDate: rule.nextDate,
     });
     if (ok) onClose();

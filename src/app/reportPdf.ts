@@ -6,10 +6,11 @@ import type { Language } from '../domain/types';
 import { dayLabel, formatMoney, monthLabel } from './format';
 
 /** The monthly report as the lines of a PDF, in the same order as the report screen. */
-export function reportRows(report: MonthReport, language: Language, t: TFunction, today: string): PdfRow[] {
+export function reportRows(report: MonthReport, language: Language, t: TFunction, today: string, accountLabel?: string): PdfRow[] {
   const money = (cents: number) => formatMoney(cents, language);
   const rows: PdfRow[] = [
     { left: t('report.heading', { month: monthLabel(report.month, language) }), style: 'title' },
+    ...(accountLabel ? [{ left: `${t('accounts.account')}: ${accountLabel}`, style: 'strong' as const }] : []),
     { left: t('report.generated', { date: today }), style: 'muted' },
     { left: t('report.startBalance'), right: money(report.startBalanceCents), space: 10 },
     { left: t('summary.income'), right: money(report.incomeCents) },
@@ -40,9 +41,10 @@ export function reportRows(report: MonthReport, language: Language, t: TFunction
   for (const day of report.days) {
     rows.push({ left: dayLabel(day.date, language), right: money(day.netCents), style: 'strong', space: 6 });
     for (const item of day.items) {
+      const categories = item.transfer ? [t('transfer.label')] : item.categories;
       rows.push({
-        left: item.note || item.categories[0] || '',
-        middle: item.categories.join(', '),
+        left: item.note || categories[0] || '',
+        middle: categories.join(', '),
         right: (item.type === 'income' ? '+' : '-') + money(item.cents),
       });
     }
@@ -50,6 +52,6 @@ export function reportRows(report: MonthReport, language: Language, t: TFunction
   return rows;
 }
 
-export function reportPdf(report: MonthReport, language: Language, t: TFunction, today: string): Uint8Array {
-  return buildPdf(reportRows(report, language, t, today));
+export function reportPdf(report: MonthReport, language: Language, t: TFunction, today: string, accountLabel?: string): Uint8Array {
+  return buildPdf(reportRows(report, language, t, today, accountLabel));
 }

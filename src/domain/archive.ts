@@ -1,9 +1,12 @@
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import { exportBackup, exportOrder, previewImport, type ImportPreview } from './backup';
-import type { Category, LedgerData, RecurringRule, Settings } from './types';
+import type { Account, Category, LedgerData, RecurringRule, Settings } from './types';
 
-/** The settings worth carrying to another device (the rest describe this device or this session). */
-export type ArchiveSettings = Pick<Settings, 'language' | 'openingCents' | 'sortOrder'>;
+/**
+ * The settings worth carrying to another device (the rest describe this device or this session).
+ * `openingCents` is only read, from a backup made before Accounts: it then belongs to the Main account.
+ */
+export type ArchiveSettings = Pick<Settings, 'language' | 'sortOrder'> & { openingCents?: number };
 
 /** A receipt photo as it travels inside the ZIP. */
 export interface PhotoFile {
@@ -14,7 +17,8 @@ export interface PhotoFile {
 export interface ArchiveContent {
   data: LedgerData;
   rules: RecurringRule[];
-  settings: ArchiveSettings;
+  accounts: Account[];
+  settings: Pick<Settings, 'language' | 'sortOrder'>;
   /** Photos by Transaction id. */
   attachments: Map<string, PhotoFile[]>;
 }
@@ -36,8 +40,12 @@ const MIME_OF: Record<string, string> = { jpg: 'image/jpeg', png: 'image/png', w
  * One ZIP holding the same CSV files as the plain backup, the settings, and the receipt photos.
  * A photo is stored as `attachments/<row>-<n>.<ext>`, where <row> is its Transaction's row in transactions.csv.
  */
-export function exportArchive(content: ArchiveContent, nameOf: (category: Category) => string): Uint8Array {
-  const files = exportBackup(content.data, nameOf, content.rules);
+export function exportArchive(
+  content: ArchiveContent,
+  nameOf: (category: Category) => string,
+  accountNameOf: (account: Account) => string = (a) => a.name,
+): Uint8Array {
+  const files = exportBackup(content.data, nameOf, content.rules, content.accounts, accountNameOf);
   const photos: Record<string, Uint8Array> = {};
   exportOrder(content.data).forEach((t, index) => {
     (content.attachments.get(t.id) ?? []).forEach((photo, n) => {
@@ -49,6 +57,7 @@ export function exportArchive(content: ArchiveContent, nameOf: (category: Catego
     'transactions.csv': strToU8(files.transactionsCsv),
     'categories.csv': strToU8(files.categoriesCsv),
     ...(files.recurringCsv ? { 'recurring.csv': strToU8(files.recurringCsv) } : {}),
+    ...(files.accountsCsv ? { 'accounts.csv': strToU8(files.accountsCsv) } : {}),
     'settings.json': strToU8(JSON.stringify(content.settings)),
     ...photos,
   });
@@ -82,7 +91,7 @@ export function importArchive(bytes: Uint8Array, newId?: () => string): ArchiveI
   const categoriesCsv = text('categories.csv');
   if (transactionsCsv === null || categoriesCsv === null) return { ok: false, reason: 'missingFile' };
 
-  const preview = previewImport({ transactionsCsv, categoriesCsv, recurringCsv: text('recurring.csv') }, newId);
+  const preview = previewImport({ transactionsCsv, categoriesCsv, recurringCsv: text('recurring.csv'), accountsCsv: text('accounts.csv') }, newId);
   const idOfRow = new Map(preview.transactionRows.map((row, i) => [row, preview.data.transactions[i].id]));
   const attachments = new Map<string, PhotoFile[]>();
   for (const name of Object.keys(entries).sort()) {

@@ -32,12 +32,20 @@ _Avoid_: Deleted category, archived category, orphan
 A weekly, monthly or yearly schedule that creates Transactions automatically when the app opens. A Transaction it created is an ordinary Transaction with a ↻ mark.
 _Avoid_: Subscription, standing order, scheduled transaction
 
+**Account**:
+A place the user keeps money: the main account, a savings account, the TFR. Every Transaction belongs to exactly one Account, and each Account has its own Opening balance and Balance. Categories are shared by all Accounts. There is always at least one; a new database starts with a "Main account".
+_Avoid_: Wallet, bank, pot
+
+**Transfer**:
+Money moved from one Account to another. It is recorded as two linked Transactions (an Expense on the source, an Income on the destination, no Categories) that change each Account's Balance but are neither income nor an expense: they are left out of the month's totals, the Category lines, the charts and the report totals, and the all-Accounts Balance does not change. They are edited and deleted together.
+_Avoid_: Move, internal payment
+
 **Balance**:
-The all-time total of the user's money: the Opening balance plus all Income minus all Expenses.
-_Avoid_: Total, net worth, account balance
+The all-time total of an Account: its Opening balance plus all its Income minus all its Expenses. With "All accounts" chosen, the Balances of every Account added together.
+_Avoid_: Total, net worth
 
 **Opening balance**:
-The amount the user already had before recording Transactions. It is a setting, may be negative, and is not part of the backup files.
+The amount an Account already held before its Transactions were recorded. It belongs to the Account, may be negative, and is part of the backup files (`accounts.csv`).
 _Avoid_: Starting balance, initial amount
 
 **Currency**:

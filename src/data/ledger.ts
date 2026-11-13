@@ -1,9 +1,13 @@
 import { openDB, type IDBPDatabase } from 'idb';
+import { validateAccountName, type AccountDeletion } from '../domain/accounts';
 import { dueOccurrences } from '../domain/recurring';
 import { validateCategoryName, type NameError } from '../domain/rules';
 import {
   DEFAULT_SETTINGS,
+  MAIN_ACCOUNT_KEY,
+  MAIN_ACCOUNT_NAME,
   STARTER_CATEGORIES,
+  type Account,
   type Attachment,
   type AttachmentInput,
   type Category,
@@ -29,6 +33,17 @@ export interface Materialized {
 
 export type RuleInput = Omit<RecurringRule, 'id'>;
 
+/** A Transfer: money moved from one Account to another. It is stored as two Transactions that share a transferId. */
+export interface TransferInput {
+  date: string;
+  cents: number;
+  fromAccountId: string;
+  toAccountId: string;
+  note: string;
+}
+
+export type AccountResult = { ok: true; account: Account } | { ok: false; reason: NameError };
+
 export type CategoryResult = { ok: true; category: Category } | { ok: false; reason: NameError };
 
 /** What a deleted Category looked like, plus the Transactions it touched, for Undo. */
@@ -42,8 +57,25 @@ export interface CategoryDeletion {
 }
 
 export interface Ledger {
-  load(): Promise<{ data: LedgerData; rules: RecurringRule[]; settings: Settings }>;
+  load(): Promise<{ data: LedgerData; rules: RecurringRule[]; accounts: Account[]; settings: Settings }>;
   seedStarterCategories(): Promise<void>;
+  /** Creates the starter Account of a new database. */
+  seedMainAccount(openingCents: number): Promise<void>;
+  createAccount(name: string, openingCents: number): Promise<AccountResult>;
+  /** Saving a different name makes a starter Account a plain one (it stops translating). */
+  updateAccount(id: string, name: string, openingCents: number): Promise<AccountResult>;
+  /** Removes the Account with its Transactions and rules; the other half of each Transfer stays as an ordinary Transaction. */
+  deleteAccount(id: string, transferLabel: string): Promise<AccountDeletion>;
+  restoreAccount(snapshot: AccountDeletion): Promise<void>;
+  /** Records a Transfer: an Expense on the source Account and an Income on the destination. Returns [from, to]. */
+  addTransfer(input: TransferInput): Promise<[Transaction, Transaction]>;
+  updateTransfer(transferId: string, input: TransferInput): Promise<[Transaction, Transaction]>;
+  /** Deletes both halves and returns them for restoreTransactions. */
+  deleteTransfer(transferId: string): Promise<Transaction[]>;
+  /** Puts Transactions back as they were (Undo of a Transfer's delete or edit). */
+  restoreTransactions(snapshots: Transaction[]): Promise<void>;
+  /** Undo for an add: removes both halves of the Transfer. */
+  undoAddTransfer(transferId: string): Promise<void>;
   addTransaction(input: TransactionInput): Promise<Transaction>;
   updateTransaction(id: string, input: TransactionInput): Promise<Transaction>;
   /** Deletes and returns a snapshot to pass to `restoreTransaction` for Undo. */
@@ -86,7 +118,7 @@ export interface Ledger {
   restoreAttachment(snapshot: Attachment): Promise<void>;
   updateSettings(patch: Partial<Settings>): Promise<Settings>;
   /** Import: replaces all Categories, Transactions and photos; settings are kept, the change count resets. */
-  replaceAll(data: LedgerData, rules?: RecurringRule[], photos?: AttachmentSeed[]): Promise<void>;
+  replaceAll(data: LedgerData, rules?: RecurringRule[], photos?: AttachmentSeed[], accounts?: Account[]): Promise<void>;
   /** Wipes everything, settings included, so the app is back at first run. */
   eraseAll(): Promise<void>;
   close(): void;
@@ -131,6 +163,28 @@ async function countChange(meta: Store, by: number): Promise<void> {
   );
 }
 
+/** The two Transactions of a Transfer, source first. "before" keeps their ids when an existing Transfer is edited. */
+function transferHalves(
+  input: TransferInput,
+  transferId: string,
+  createdAt: number,
+  before: Transaction[] = [],
+): [Transaction, Transaction] {
+  const half = (type: TxType, accountId: string, createdAtOf: number): Transaction => ({
+    id: before.find((t) => t.type === type)?.id ?? crypto.randomUUID(),
+    accountId,
+    transferId,
+    date: input.date,
+    type,
+    cents: input.cents,
+    categoryIds: [],
+    retired: [],
+    note: input.note,
+    createdAt: createdAtOf,
+  });
+  return [half('expense', input.fromAccountId, createdAt), half('income', input.toAccountId, createdAt + 1)];
+}
+
 function retiredNames(carriers: Array<{ type: TxType; retired: string[] }>, type: TxType): string[] {
   return [...new Set(carriers.filter((c) => c.type === type).flatMap((c) => c.retired))];
 }
@@ -143,11 +197,14 @@ export async function openLedger(
   dbName: string,
   nameOf: (category: Category) => string,
   onWaiting?: () => void,
+  /** How an Account is named on screen (a starter Account is translated); only used to tell two apart. */
+  shownName: (account: Account) => string = (a) => a.name,
 ): Promise<Ledger> {
   // Version 1: categories, transactions, meta. Version 2 adds recurring rules, version 3 receipt photos
-  // (existing data is untouched).
-  const db: IDBPDatabase = await openDB(dbName, 3, {
-    upgrade(database, oldVersion) {
+  // (existing data is untouched). Version 4 adds Accounts: what was recorded so far moves into one Main account
+  // that takes over the Opening balance.
+  const db: IDBPDatabase = await openDB(dbName, 4, {
+    async upgrade(database, oldVersion, _newVersion, upgrading) {
       if (oldVersion < 1) {
         database.createObjectStore('categories', { keyPath: 'id' });
         database.createObjectStore('transactions', { keyPath: 'id' });
@@ -156,6 +213,26 @@ export async function openLedger(
       if (oldVersion < 2) database.createObjectStore('rules', { keyPath: 'id' });
       if (oldVersion < 3) {
         database.createObjectStore('attachments', { keyPath: 'id' }).createIndex('byTransaction', 'transactionId');
+      }
+      if (oldVersion < 4) {
+        database.createObjectStore('accounts', { keyPath: 'id' });
+        const settings = (await upgrading.objectStore('meta').get('settings')) as (Partial<Settings> & { openingCents?: number }) | undefined;
+        if (settings?.onboarded) {
+          const main: Account = {
+            id: crypto.randomUUID(),
+            name: MAIN_ACCOUNT_NAME,
+            defaultKey: MAIN_ACCOUNT_KEY,
+            openingCents: settings.openingCents ?? 0,
+          };
+          await upgrading.objectStore('accounts').put(main);
+          for (const store of ['transactions', 'rules'] as const) {
+            for (const item of (await upgrading.objectStore(store).getAll()) as Array<Transaction | RecurringRule>) {
+              await upgrading.objectStore(store).put({ ...item, accountId: main.id });
+            }
+          }
+          const { openingCents: _moved, ...rest } = settings;
+          await upgrading.objectStore('meta').put(rest, 'settings');
+        }
       }
     },
     blocked() {
@@ -172,8 +249,126 @@ export async function openLedger(
       const categories = (await db.getAll('categories')) as Category[];
       const transactions = (await db.getAll('transactions')) as Transaction[];
       const rules = (await db.getAll('rules')) as RecurringRule[];
+      const accounts = ((await db.getAll('accounts')) as Account[]).sort((a, b) => a.name.localeCompare(b.name));
       const stored = (await db.get('meta', 'settings')) as Partial<Settings> | undefined;
-      return { data: { categories, transactions }, rules, settings: settingsFrom(stored) };
+      return { data: { categories, transactions }, rules, accounts, settings: settingsFrom(stored) };
+    },
+
+    async seedMainAccount(openingCents) {
+      const main: Account = { id: crypto.randomUUID(), name: MAIN_ACCOUNT_NAME, defaultKey: MAIN_ACCOUNT_KEY, openingCents };
+      await db.put('accounts', main);
+    },
+
+    async createAccount(name, openingCents) {
+      const tx = db.transaction(['accounts', 'meta'], 'readwrite');
+      const all = (await tx.objectStore('accounts').getAll()) as Account[];
+      const checked = validateAccountName(name, all.map(shownName));
+      if (!checked.ok) {
+        await tx.done;
+        return checked;
+      }
+      const account: Account = { id: crypto.randomUUID(), name: checked.name, openingCents };
+      await tx.objectStore('accounts').put(account);
+      await countChange(tx.objectStore('meta'), 1);
+      await tx.done;
+      return { ok: true, account };
+    },
+
+    async updateAccount(id, name, openingCents) {
+      const tx = db.transaction(['accounts', 'meta'], 'readwrite');
+      const all = (await tx.objectStore('accounts').getAll()) as Account[];
+      const current = all.find((a) => a.id === id)!;
+      const checked = validateAccountName(name, all.filter((a) => a.id !== id).map(shownName));
+      if (!checked.ok) {
+        await tx.done;
+        return checked;
+      }
+      // Keeping the shown name keeps a starter Account translating; any other name makes it a plain one.
+      const renamed = checked.name !== shownName(current);
+      const { defaultKey: _dropped, ...rest } = current;
+      const account: Account = renamed ? { ...rest, name: checked.name, openingCents } : { ...current, openingCents };
+      await tx.objectStore('accounts').put(account);
+      await countChange(tx.objectStore('meta'), 1);
+      await tx.done;
+      return { ok: true, account };
+    },
+
+    async deleteAccount(id, transferLabel) {
+      const tx = db.transaction(['accounts', 'transactions', 'rules', 'meta'], 'readwrite');
+      const account = (await tx.objectStore('accounts').get(id)) as Account;
+      const all = (await tx.objectStore('transactions').getAll()) as Transaction[];
+      const own = all.filter((t) => t.accountId === id);
+      const transferIds = new Set(own.flatMap((t) => (t.transferId === undefined ? [] : [t.transferId])));
+      const partners = all.filter((t) => t.accountId !== id && t.transferId !== undefined && transferIds.has(t.transferId));
+      for (const t of own) await tx.objectStore('transactions').delete(t.id);
+      // The other half keeps its effect on its Account, as an ordinary Transaction labelled "Transfer".
+      for (const t of partners) {
+        const { transferId: _gone, ...rest } = t;
+        await tx.objectStore('transactions').put({ ...rest, retired: [...t.retired, transferLabel] });
+      }
+      const rules = ((await tx.objectStore('rules').getAll()) as RecurringRule[]).filter((r) => r.accountId === id);
+      for (const r of rules) await tx.objectStore('rules').delete(r.id);
+      await tx.objectStore('accounts').delete(id);
+      await countChange(tx.objectStore('meta'), 1);
+      await tx.done;
+      return { account, transactions: own, partners, rules };
+    },
+
+    async restoreAccount(snapshot) {
+      const tx = db.transaction(['accounts', 'transactions', 'rules', 'meta'], 'readwrite');
+      await tx.objectStore('accounts').put(snapshot.account);
+      for (const t of [...snapshot.transactions, ...snapshot.partners]) await tx.objectStore('transactions').put(t);
+      for (const r of snapshot.rules) await tx.objectStore('rules').put(r);
+      await countChange(tx.objectStore('meta'), -1);
+      await tx.done;
+    },
+
+    async addTransfer(input) {
+      const tx = db.transaction(['transactions', 'meta'], 'readwrite');
+      const existing = (await tx.objectStore('transactions').getAll()) as Transaction[];
+      const createdAt = Math.max(Date.now(), ...existing.map((t) => (t.createdAt ?? 0) + 1));
+      const halves = transferHalves(input, crypto.randomUUID(), createdAt);
+      for (const half of halves) await tx.objectStore('transactions').put(half);
+      await countChange(tx.objectStore('meta'), 1);
+      await tx.done;
+      return halves;
+    },
+
+    async updateTransfer(transferId, input) {
+      const tx = db.transaction(['transactions', 'meta'], 'readwrite');
+      const before = ((await tx.objectStore('transactions').getAll()) as Transaction[]).filter((t) => t.transferId === transferId);
+      const createdAt = Math.min(...before.map((t) => t.createdAt ?? Date.now()));
+      const halves = transferHalves(input, transferId, createdAt, before);
+      for (const half of halves) await tx.objectStore('transactions').put(half);
+      await countChange(tx.objectStore('meta'), 1);
+      await tx.done;
+      return halves;
+    },
+
+    async deleteTransfer(transferId) {
+      const tx = db.transaction(['transactions', 'meta'], 'readwrite');
+      const halves = ((await tx.objectStore('transactions').getAll()) as Transaction[]).filter((t) => t.transferId === transferId);
+      for (const half of halves) await tx.objectStore('transactions').delete(half.id);
+      await countChange(tx.objectStore('meta'), 1);
+      await tx.done;
+      return halves;
+    },
+
+    async restoreTransactions(snapshots) {
+      const tx = db.transaction(['transactions', 'meta'], 'readwrite');
+      for (const t of snapshots) await tx.objectStore('transactions').put(t);
+      await countChange(tx.objectStore('meta'), -1);
+      await tx.done;
+    },
+
+    async undoAddTransfer(transferId) {
+      const tx = db.transaction(['transactions', 'meta'], 'readwrite');
+      const halves = ((await tx.objectStore('transactions').getAll()) as Transaction[]).filter((t) => t.transferId === transferId);
+      if (halves.length > 0) {
+        for (const half of halves) await tx.objectStore('transactions').delete(half.id);
+        await countChange(tx.objectStore('meta'), -1);
+      }
+      await tx.done;
     },
 
     async seedStarterCategories() {
@@ -269,6 +464,7 @@ export async function openLedger(
       const source = (await tx.objectStore('transactions').get(transactionId)) as Transaction;
       const draft: RecurringRule = {
         id: crypto.randomUUID(),
+        accountId: source.accountId,
         type: source.type,
         cents: source.cents,
         categoryIds: source.categoryIds,
@@ -315,6 +511,7 @@ export async function openLedger(
         for (const date of due.dates) {
           const transaction: Transaction = {
             id: crypto.randomUUID(),
+            accountId: rule.accountId,
             date,
             type: rule.type,
             cents: rule.cents,
@@ -498,8 +695,10 @@ export async function openLedger(
       return settings;
     },
 
-    async replaceAll(data, rules = [], photos = []) {
-      const tx = db.transaction(['categories', 'transactions', 'rules', 'attachments', 'meta'], 'readwrite');
+    async replaceAll(data, rules = [], photos = [], accounts = []) {
+      const tx = db.transaction(['categories', 'transactions', 'rules', 'accounts', 'attachments', 'meta'], 'readwrite');
+      await tx.objectStore('accounts').clear();
+      for (const a of accounts) await tx.objectStore('accounts').put(a);
       await tx.objectStore('categories').clear();
       await tx.objectStore('transactions').clear();
       await tx.objectStore('rules').clear();
@@ -528,7 +727,8 @@ export async function openLedger(
     },
 
     async eraseAll() {
-      const tx = db.transaction(['categories', 'transactions', 'rules', 'attachments', 'meta'], 'readwrite');
+      const tx = db.transaction(['categories', 'transactions', 'rules', 'accounts', 'attachments', 'meta'], 'readwrite');
+      await tx.objectStore('accounts').clear();
       await tx.objectStore('attachments').clear();
       await tx.objectStore('categories').clear();
       await tx.objectStore('transactions').clear();

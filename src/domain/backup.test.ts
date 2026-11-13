@@ -16,7 +16,7 @@ const tx = (
   categoryIds: string[],
   retired: string[] = [],
   note = '',
-): Transaction => ({ id: `${date}-${cents}`, date, type, cents, categoryIds, retired, note });
+): Transaction => ({ id: `${date}-${cents}`, accountId: 'a1', date, type, cents, categoryIds, retired, note });
 
 const nameOf = (c: Category) => c.name;
 const BOM = '﻿';
@@ -208,6 +208,7 @@ describe('previewImport: Categories validation', () => {
 describe('exportBackup: recurring.csv', () => {
   const rule = {
     id: 'r1',
+    accountId: 'a1',
     type: 'expense' as const,
     cents: 72000,
     categoryIds: ['groceries'],
@@ -256,11 +257,11 @@ describe('exportBackup: order', () => {
 describe('previewImport: recurring rules', () => {
   const rules = [
     {
-      id: 'r1', type: 'expense' as const, cents: 72000, categoryIds: ['groceries'], retired: ['Gym'],
+      id: 'r1', accountId: 'a1', type: 'expense' as const, cents: 72000, categoryIds: ['groceries'], retired: ['Gym'],
       note: 'Rent, flat 3', frequency: 'monthly' as const, startDate: '2026-01-31', endDate: null, nextDate: '2026-05-31',
     },
     {
-      id: 'r2', type: 'income' as const, cents: 5000, categoryIds: ['salary'], retired: [],
+      id: 'r2', accountId: 'a1', type: 'income' as const, cents: 5000, categoryIds: ['salary'], retired: [],
       note: '', frequency: 'weekly' as const, startDate: '2026-02-01', endDate: '2026-12-31', nextDate: '2026-10-25',
     },
   ];

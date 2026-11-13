@@ -17,9 +17,9 @@ export interface MonthSummary {
   uncountedLines: Array<SummaryLine & { type: TxType }>;
 }
 
-/** False when any of the Transaction's Categories is Not counted: it then stays out of the totals. */
-export function isCounted(t: Pick<Transaction, 'categoryIds'>, byId: Map<string, Category>): boolean {
-  return !t.categoryIds.some((id) => byId.get(id)?.uncounted);
+/** False when any of the Transaction's Categories is Not counted, or it is half of a Transfer: it stays out of the totals. */
+export function isCounted(t: Pick<Transaction, 'categoryIds' | 'transferId'>, byId: Map<string, Category>): boolean {
+  return t.transferId === undefined && !t.categoryIds.some((id) => byId.get(id)?.uncounted);
 }
 
 export function summarize(
@@ -34,7 +34,8 @@ export function summarize(
   let expenseCents = 0;
 
   for (const t of data.transactions) {
-    if (!t.date.startsWith(month)) continue;
+    // Money moved between Accounts is neither earned nor spent.
+    if (!t.date.startsWith(month) || t.transferId !== undefined) continue;
     const counted = isCounted(t, byId);
     const add = (key: string, name: string, retired: boolean) => {
       const target = counted ? lines[t.type] : uncounted;

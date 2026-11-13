@@ -7,6 +7,7 @@ import { DEFAULT_SETTINGS } from '../domain/types';
 let counter = 0;
 const freshName = () => `money-test-${++counter}`;
 const nameOf = (c: { name: string }) => c.name;
+const ACC = 'acc-1';
 
 describe('openLedger', () => {
   it('loads empty data and the default settings from a fresh database', async () => {
@@ -46,7 +47,7 @@ describe('starter Categories and Transactions', () => {
     const groceries = (await first.load()).data.categories.find((c) => c.defaultKey === 'groceries')!;
 
     const saved = await first.addTransaction({
-      date: '2026-10-17', type: 'expense', cents: 6230, categoryIds: [groceries.id], retired: [], note: 'Weekly shop',
+      accountId: ACC, date: '2026-10-17', type: 'expense', cents: 6230, categoryIds: [groceries.id], retired: [], note: 'Weekly shop',
     });
     first.close();
 
@@ -67,7 +68,7 @@ describe('what saving a Transaction does', () => {
     const health = before.find((c) => c.defaultKey === 'health')!;
 
     await ledger.addTransaction({
-      date: '2026-10-03', type: 'expense', cents: 1240, categoryIds: [transport.id, health.id], retired: [], note: '',
+      accountId: ACC, date: '2026-10-03', type: 'expense', cents: 1240, categoryIds: [transport.id, health.id], retired: [], note: '',
     });
     const { data, settings } = await ledger.load();
 
@@ -89,7 +90,7 @@ async function ledgerWithOneTransaction() {
   const groceries = categories.find((c) => c.defaultKey === 'groceries')!;
   const shopping = categories.find((c) => c.defaultKey === 'shopping')!;
   const saved = await ledger.addTransaction({
-    date: '2026-10-17', type: 'expense', cents: 6230, categoryIds: [groceries.id], retired: [], note: 'Weekly shop',
+    accountId: ACC, date: '2026-10-17', type: 'expense', cents: 6230, categoryIds: [groceries.id], retired: [], note: 'Weekly shop',
   });
   return { ledger, groceries, shopping, saved };
 }
@@ -99,12 +100,12 @@ describe('editing and deleting a Transaction', () => {
     const { ledger, shopping, saved } = await ledgerWithOneTransaction();
 
     const updated = await ledger.updateTransaction(saved.id, {
-      date: '2026-10-18', type: 'expense', cents: 7000, categoryIds: [shopping.id], retired: ['Gym'], note: 'New pan',
+      accountId: ACC, date: '2026-10-18', type: 'expense', cents: 7000, categoryIds: [shopping.id], retired: ['Gym'], note: 'New pan',
     });
     const { data, settings } = await ledger.load();
 
     expect(updated).toEqual({
-      id: saved.id, date: '2026-10-18', type: 'expense', cents: 7000, categoryIds: [shopping.id], retired: ['Gym'], note: 'New pan',
+      id: saved.id, accountId: ACC, date: '2026-10-18', type: 'expense', cents: 7000, categoryIds: [shopping.id], retired: ['Gym'], note: 'New pan',
       createdAt: saved.createdAt, // an edit does not change when it was first recorded
     });
     expect(data.transactions).toEqual([updated]);
@@ -179,7 +180,7 @@ describe('deleting a Category', () => {
   it('leaves its name on the Transactions that had it as a Retired label, and reports how many were affected', async () => {
     const { ledger, groceries, shopping, saved } = await ledgerWithOneTransaction();
     const both = await ledger.updateTransaction(saved.id, {
-      date: saved.date, type: 'expense', cents: saved.cents, categoryIds: [groceries.id, shopping.id], retired: ['Gym'], note: '',
+      accountId: saved.accountId, date: saved.date, type: 'expense', cents: saved.cents, categoryIds: [groceries.id, shopping.id], retired: ['Gym'], note: '',
     });
 
     const snapshot = await ledger.deleteCategory(groceries.id);
@@ -240,7 +241,7 @@ describe('renaming a Category', () => {
   it('refuses a name used by another Category or reserved by a Retired label, but accepts keeping its own name', async () => {
     const { ledger, groceries, shopping } = await ledgerWithOneTransaction();
     await ledger.addTransaction({
-      date: '2026-10-18', type: 'expense', cents: 500, categoryIds: [shopping.id], retired: [], note: '',
+      accountId: ACC, date: '2026-10-18', type: 'expense', cents: 500, categoryIds: [shopping.id], retired: [], note: '',
     });
     await ledger.deleteCategory(shopping.id);
 
@@ -251,28 +252,28 @@ describe('renaming a Category', () => {
 });
 
 describe('replacing and erasing everything', () => {
-  it('replaceAll swaps in the imported data, keeps language and opening balance, and resets the change count', async () => {
+  it('replaceAll swaps in the imported data and Accounts, keeps the language, and resets the change count', async () => {
     const { ledger } = await ledgerWithOneTransaction();
-    await ledger.updateSettings({ language: 'it', openingCents: 12345 });
+    await ledger.updateSettings({ language: 'it' });
     const imported = {
       categories: [{ id: 'c1', type: 'expense' as const, name: 'Food', lastUsedAt: 5 }],
       transactions: [
-        { id: 't1', date: '2026-01-02', type: 'expense' as const, cents: 100, categoryIds: ['c1'], retired: [], note: '' },
+        { id: 't1', accountId: ACC, date: '2026-01-02', type: 'expense' as const, cents: 100, categoryIds: ['c1'], retired: [], note: '' },
       ],
     };
 
-    await ledger.replaceAll(imported);
-    const { data, settings } = await ledger.load();
+    const account = { id: ACC, name: 'Main account', openingCents: 12345 };
+    await ledger.replaceAll(imported, [], [], [account]);
+    const { data, accounts, settings } = await ledger.load();
+    expect(accounts).toEqual([account]);
 
     expect(data).toEqual(imported);
-    expect(settings).toEqual(expect.objectContaining({
-      language: 'it', openingCents: 12345, onboarded: true, changesSinceBackup: 0,
-    }));
+    expect(settings).toEqual(expect.objectContaining({ language: 'it', onboarded: true, changesSinceBackup: 0 }));
   });
 
   it('eraseAll removes every Category, Transaction and setting, so the app is back at first run', async () => {
     const { ledger } = await ledgerWithOneTransaction();
-    await ledger.updateSettings({ language: 'it', openingCents: 999, onboarded: true });
+    await ledger.updateSettings({ language: 'it', onboarded: true });
 
     await ledger.eraseAll();
     const { data, settings } = await ledger.load();
@@ -299,18 +300,59 @@ describe('upgrading a database written by the first version', () => {
     old.close();
 
     const ledger = await openLedger(name, nameOf);
-    const { data, rules, settings } = await ledger.load();
+    const { data, rules, accounts, settings } = await ledger.load();
 
-    expect(data.transactions).toEqual([legacy]);
+    // Everything recorded so far moves into one Main account, which takes over the Opening balance.
+    expect(accounts).toEqual([expect.objectContaining({ name: 'Main account', defaultKey: 'main', openingCents: 500 })]);
+    expect(data.transactions).toEqual([{ ...legacy, accountId: accounts[0].id }]);
     expect(rules).toEqual([]);
-    expect(settings).toEqual(expect.objectContaining({ language: 'it', openingCents: 500, onboarded: true, sortOrder: 'newest' }));
+    expect(settings).toEqual(expect.objectContaining({ language: 'it', onboarded: true, sortOrder: 'newest' }));
+    expect(settings).not.toHaveProperty('openingCents');
+  });
+
+  it('does not invent an Account in a database that was never set up', async () => {
+    const name = freshName();
+    const old = await openDB(name, 3, {
+      upgrade(database) {
+        database.createObjectStore('categories', { keyPath: 'id' });
+        database.createObjectStore('transactions', { keyPath: 'id' });
+        database.createObjectStore('meta');
+        database.createObjectStore('rules', { keyPath: 'id' });
+        database.createObjectStore('attachments', { keyPath: 'id' }).createIndex('byTransaction', 'transactionId');
+      },
+    });
+    old.close();
+
+    const { accounts } = await (await openLedger(name, nameOf)).load();
+
+    expect(accounts).toEqual([]);
+  });
+
+  it('moves the rules into the Main account as well', async () => {
+    const name = freshName();
+    const old = await openDB(name, 3, {
+      upgrade(database) {
+        database.createObjectStore('categories', { keyPath: 'id' });
+        database.createObjectStore('transactions', { keyPath: 'id' });
+        database.createObjectStore('meta');
+        database.createObjectStore('rules', { keyPath: 'id' });
+        database.createObjectStore('attachments', { keyPath: 'id' }).createIndex('byTransaction', 'transactionId');
+      },
+    });
+    await old.put('rules', { id: 'r1', type: 'expense', cents: 100, categoryIds: [], retired: ['Rent'], note: '', frequency: 'monthly', startDate: '2026-01-01', endDate: null, nextDate: '2026-02-01' });
+    await old.put('meta', { language: 'en', onboarded: true }, 'settings');
+    old.close();
+
+    const { rules, accounts } = await (await openLedger(name, nameOf)).load();
+
+    expect(rules[0].accountId).toBe(accounts[0].id);
   });
 });
 
 describe('when a Transaction was recorded', () => {
   it('stamps each new Transaction later than every earlier one, even within the same millisecond', async () => {
     const { ledger, groceries } = await ledgerWithOneTransaction();
-    const input = { date: '2026-10-17', type: 'expense' as const, cents: 100, categoryIds: [groceries.id], retired: [], note: '' };
+    const input = { accountId: ACC, date: '2026-10-17', type: 'expense' as const, cents: 100, categoryIds: [groceries.id], retired: [], note: '' };
 
     const a = await ledger.addTransaction(input);
     const b = await ledger.addTransaction(input);
@@ -324,11 +366,11 @@ describe('when a Transaction was recorded', () => {
   it('is kept, with the link to a recurring rule, when the Transaction is edited', async () => {
     const { ledger, groceries } = await ledgerWithOneTransaction();
     const saved = await ledger.addTransaction({
-      date: '2026-10-17', type: 'expense', cents: 100, categoryIds: [groceries.id], retired: [], note: '', ruleId: 'rule-1',
+      accountId: ACC, date: '2026-10-17', type: 'expense', cents: 100, categoryIds: [groceries.id], retired: [], note: '', ruleId: 'rule-1',
     });
 
     const edited = await ledger.updateTransaction(saved.id, {
-      date: '2026-10-18', type: 'expense', cents: 250, categoryIds: [groceries.id], retired: [], note: 'changed',
+      accountId: ACC, date: '2026-10-18', type: 'expense', cents: 250, categoryIds: [groceries.id], retired: [], note: 'changed',
     });
 
     expect(edited.createdAt).toBe(saved.createdAt);
@@ -340,7 +382,7 @@ describe('when a Transaction was recorded', () => {
 async function ledgerWithRule(over: Record<string, unknown> = {}) {
   const base = await ledgerWithOneTransaction();
   const rule = await base.ledger.addRule({
-    type: 'expense', cents: 72000, categoryIds: [base.groceries.id], retired: [], note: 'Rent',
+    accountId: ACC, type: 'expense', cents: 72000, categoryIds: [base.groceries.id], retired: [], note: 'Rent',
     frequency: 'monthly', startDate: '2026-01-31', endDate: null, nextDate: '2026-01-31', ...over,
   });
   return { ...base, rule };
@@ -360,7 +402,7 @@ describe('recurring rules', () => {
     const { ledger, rule } = await ledgerWithRule();
 
     const updated = await ledger.updateRule(rule.id, {
-      type: 'expense', cents: 75000, categoryIds: rule.categoryIds, retired: [], note: 'Rent (new price)',
+      accountId: ACC, type: 'expense', cents: 75000, categoryIds: rule.categoryIds, retired: [], note: 'Rent (new price)',
       frequency: 'monthly', startDate: rule.startDate, endDate: '2026-12-31', nextDate: rule.nextDate,
     });
 
@@ -371,7 +413,7 @@ describe('recurring rules', () => {
   it('deleteRule stops the rule but keeps its Transactions, now without the link to it', async () => {
     const { ledger, rule, groceries } = await ledgerWithRule();
     const made = await ledger.addTransaction({
-      date: '2026-01-31', type: 'expense', cents: 72000, categoryIds: [groceries.id], retired: [], note: 'Rent', ruleId: rule.id,
+      accountId: ACC, date: '2026-01-31', type: 'expense', cents: 72000, categoryIds: [groceries.id], retired: [], note: 'Rent', ruleId: rule.id,
     });
 
     await ledger.deleteRule(rule.id);
@@ -430,7 +472,7 @@ describe('undoing a batch of generated Transactions', () => {
     const { ledger, groceries } = await ledgerWithRule({ startDate: '2026-03-01', nextDate: '2026-03-01' });
     const batch = await ledger.materializeRules('2026-03-10');
     const mine = await ledger.addTransaction({
-      date: '2026-03-05', type: 'expense', cents: 100, categoryIds: [groceries.id], retired: [], note: 'mine',
+      accountId: ACC, date: '2026-03-05', type: 'expense', cents: 100, categoryIds: [groceries.id], retired: [], note: 'mine',
     });
 
     await ledger.undoMaterialize(batch);
@@ -515,7 +557,7 @@ describe('replacing and erasing with rules', () => {
     const { ledger } = await ledgerWithRule();
     await ledger.updateSettings({ language: 'it' });
     const imported = {
-      id: 'new-rule', type: 'income' as const, cents: 100, categoryIds: [], retired: ['Pay'], note: 'x',
+      id: 'new-rule', accountId: ACC, type: 'income' as const, cents: 100, categoryIds: [], retired: ['Pay'], note: 'x',
       frequency: 'weekly' as const, startDate: '2026-01-01', endDate: null, nextDate: '2026-02-01',
     };
 
@@ -572,7 +614,7 @@ describe('undoing an add', () => {
     const { ledger, groceries } = await ledgerWithOneTransaction();
     const before = await ledger.load();
     const added = await ledger.addTransaction({
-      date: '2026-10-20', type: 'expense', cents: 450, categoryIds: [groceries.id], retired: [], note: 'oops',
+      accountId: ACC, date: '2026-10-20', type: 'expense', cents: 450, categoryIds: [groceries.id], retired: [], note: 'oops',
     });
 
     await ledger.undoAddTransaction(added.id);
@@ -601,8 +643,8 @@ describe('receipt photos', () => {
     const first = await openLedger(name, nameOf);
     await first.seedStarterCategories();
     const groceries = (await first.load()).data.categories.find((c) => c.defaultKey === 'groceries')!;
-    const a = await first.addTransaction({ date: '2026-10-17', type: 'expense', cents: 100, categoryIds: [groceries.id], retired: [], note: 'a' });
-    const b = await first.addTransaction({ date: '2026-10-18', type: 'expense', cents: 200, categoryIds: [groceries.id], retired: [], note: 'b' });
+    const a = await first.addTransaction({ accountId: ACC, date: '2026-10-17', type: 'expense', cents: 100, categoryIds: [groceries.id], retired: [], note: 'a' });
+    const b = await first.addTransaction({ accountId: ACC, date: '2026-10-18', type: 'expense', cents: 200, categoryIds: [groceries.id], retired: [], note: 'b' });
 
     await first.addAttachment(a.id, photo(1));
     await first.addAttachment(a.id, photo(2));

@@ -10,7 +10,7 @@ const SLICE_COLORS = 6;
 
 export function ChartsScreen({ initialMonth, onBack }: { initialMonth: string; onBack: () => void }) {
   const { t } = useTranslation();
-  const { data, language } = useStore();
+  const { scoped: data, language } = useStore();
   const [month, setMonth] = useState(initialMonth);
   const [type, setType] = useState<TxType>('expense');
   const [months, setMonths] = useState<6 | 12>(6);

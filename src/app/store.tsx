@@ -1,5 +1,15 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { openLedger, type CategoryResult, type Ledger, type RuleInput, type TransactionInput } from '../data/ledger';
+import {
+  openLedger,
+  type AccountResult,
+  type CategoryResult,
+  type Ledger,
+  type RuleInput,
+  type TransactionInput,
+  type TransferInput,
+} from '../data/ledger';
+import { openingOf, scopeTo } from '../domain/accounts';
+import type { ImportPreview } from '../domain/backup';
 import { exportArchive, type ArchiveContent, type ArchiveSettings, type PhotoFile } from '../domain/archive';
 import { BACKUP_DISMISS_MS, INSTALL_DISMISS_MS } from '../domain/reminders';
 import {
@@ -16,6 +26,7 @@ import {
 } from '../domain/toasts';
 import {
   DEFAULT_SETTINGS,
+  type Account,
   type Attachment,
   type AttachmentInput,
   type Category,
@@ -28,7 +39,7 @@ import {
   type SortOrder,
   type TxType,
 } from '../domain/types';
-import i18n, { categoryName, setLanguage as applyLanguage } from '../i18n';
+import i18n, { accountName, categoryName, setLanguage as applyLanguage } from '../i18n';
 import { formatMoney, todayISO } from './format';
 import { exportArchiveFile, exportFiles, requestPersistence } from './platform';
 
@@ -59,6 +70,15 @@ export interface Store {
   waitingForOtherCopy: boolean;
   data: LedgerData;
   rules: RecurringRule[];
+  /** Every Account, by name. There is always at least one. */
+  accounts: Account[];
+  /** The Account the screens show, or null for all of them together. */
+  accountFilter: string | null;
+  setAccountFilter: (id: string | null) => void;
+  /** What the screens show: only the chosen Account's Transactions (all of them when none is chosen). */
+  scoped: LedgerData;
+  /** The Opening balance of the chosen Account, or of all Accounts added together. */
+  openingCents: number;
   settings: Settings;
   language: Language;
   /** How many receipt photos each Transaction has (Transactions with none are left out). */
@@ -85,8 +105,13 @@ export interface Store {
   renameCategory: (id: string, name: string) => Promise<CategoryResult>;
   setCategoryCounted: (id: string, counted: boolean) => Promise<void>;
   deleteCategory: (id: string) => Promise<void>;
+  createAccount: (name: string, openingCents: number) => Promise<AccountResult>;
+  updateAccount: (id: string, name: string, openingCents: number) => Promise<AccountResult>;
+  deleteAccount: (id: string) => Promise<void>;
+  addTransfer: (input: TransferInput) => Promise<boolean>;
+  updateTransfer: (transferId: string, input: TransferInput) => Promise<boolean>;
+  deleteTransfer: (transferId: string) => Promise<void>;
   setLanguage: (language: Language) => Promise<void>;
-  setOpeningBalance: (cents: number) => Promise<void>;
   setSortOrder: (order: SortOrder) => Promise<void>;
   startFresh: (openingCents: number) => Promise<void>;
   /**
@@ -94,7 +119,11 @@ export interface Store {
    * its own message, and its Undo leaves this device marked as changed, so the next save asks instead of
    * loading the copy again. `message` replaces the usual toast text.
    */
-  applyImport: (data: LedgerData, rules: RecurringRule[], extras?: ImportExtras, options?: { automatic?: boolean; message?: string }) => Promise<void>;
+  applyImport: (
+    imported: Pick<ImportPreview, 'data' | 'rules' | 'accounts' | 'accountsInFile'>,
+    extras?: ImportExtras,
+    options?: { automatic?: boolean; message?: string },
+  ) => Promise<void>;
   eraseAll: () => Promise<void>;
   exportBackup: () => Promise<boolean>;
   /** One ZIP with the CSV data, the settings and the receipt photos. */
@@ -135,6 +164,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [waitingForOtherCopy, setWaitingForOtherCopy] = useState(false);
   const [data, setData] = useState<LedgerData>(EMPTY);
   const [rules, setRules] = useState<RecurringRule[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [chosenAccount, setChosenAccount] = useState<string | null>(null);
   const [photoCounts, setPhotoCounts] = useState<Record<string, number>>({});
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [queue, setQueue] = useState<ToastState>(EMPTY_TOASTS);
@@ -145,6 +176,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const loaded = await ledgerRef.current!.load();
     setData(loaded.data);
     setRules(loaded.rules);
+    setAccounts(loaded.accounts);
     setPhotoCounts(await ledgerRef.current!.attachmentCounts());
     setSettings(loaded.settings);
     applyLanguage(loaded.settings.language);
@@ -152,7 +184,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
-    openLedger('money-tracker', categoryName, () => setWaitingForOtherCopy(true))
+    openLedger('money-tracker', categoryName, () => setWaitingForOtherCopy(true), accountName)
       .then(async (ledger) => {
         if (cancelled) return;
         setWaitingForOtherCopy(false);
@@ -238,14 +270,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, [ready, storageError, onboarded, runRecurring]);
 
+  // The chosen Account may have been deleted, or replaced by an import: then all of them are shown.
+  const accountFilter = chosenAccount !== null && accounts.some((a) => a.id === chosenAccount) ? chosenAccount : null;
+  const scoped = useMemo(() => scopeTo(data, accountFilter), [data, accountFilter]);
+  const openingCents = useMemo(() => openingOf(accounts, accountFilter), [accounts, accountFilter]);
+
   const store = useMemo<Store>(() => {
     const archiveContent = async (): Promise<ArchiveContent> => {
       const attachments = new Map<string, PhotoFile[]>();
       for (const a of await ledgerRef.current!.allAttachments()) {
         attachments.set(a.transactionId, [...(attachments.get(a.transactionId) ?? []), { mime: a.mime, bytes: new Uint8Array(a.data) }]);
       }
-      const { language, openingCents, sortOrder } = settings;
-      return { data, rules, settings: { language, openingCents, sortOrder }, attachments };
+      const { language, sortOrder } = settings;
+      return { data, rules, accounts, settings: { language, sortOrder }, attachments };
     };
     const requestPersistenceOnce = async () => {
       const current = (await ledgerRef.current!.load()).settings;
@@ -254,6 +291,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       await ledgerRef.current!.updateSettings({ persistRequested: true });
     };
     const undo = i18n.t('common.undo');
+    const nameOfAccountId = (id: string | undefined) => {
+      const account = accounts.find((a) => a.id === id);
+      return account ? accountName(account) : '';
+    };
+    const transferDetail = (input: TransferInput) => ({
+      amount: formatMoney(input.cents, settings.language),
+      from: nameOfAccountId(input.fromAccountId),
+      to: nameOfAccountId(input.toAccountId),
+    });
     const freshCategories = async () => (await ledgerRef.current!.load()).data.categories;
     const detail = async (tx: { note: string; categoryIds: string[]; retired: string[]; cents: number }) => ({
       what: labelOf(tx, await freshCategories()),
@@ -271,6 +317,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       waitingForOtherCopy,
       data,
       rules,
+      accounts,
+      accountFilter,
+      setAccountFilter: setChosenAccount,
+      scoped,
+      openingCents,
       settings,
       language: settings.language,
       photoCounts,
@@ -388,9 +439,70 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         applyLanguage(language);
         await write((l) => l.updateSettings({ language }));
       },
-      async setOpeningBalance(cents) {
-        const result = await write((l) => l.updateSettings({ openingCents: cents }));
-        if (result.ok) notify({ kind: 'success', message: i18n.t('toast.openingSaved') });
+      async createAccount(name, openingCents) {
+        const result = await write((l) => l.createAccount(name, openingCents));
+        if (!result.ok) return { ok: false, reason: 'empty' };
+        if (result.value.ok) notify({ kind: 'success', message: i18n.t('toast.accountCreated', { name: accountName(result.value.account) }) });
+        return result.value;
+      },
+      async updateAccount(id, name, openingCents) {
+        const result = await write((l) => l.updateAccount(id, name, openingCents));
+        if (!result.ok) return { ok: false, reason: 'empty' };
+        if (result.value.ok) notify({ kind: 'success', message: i18n.t('toast.accountSaved', { name: accountName(result.value.account) }) });
+        return result.value;
+      },
+      async deleteAccount(id) {
+        const result = await write((l) => l.deleteAccount(id, i18n.t('transfer.label')));
+        if (!result.ok) return;
+        const snapshot = result.value;
+        notify({
+          kind: 'success',
+          message: i18n.t('toast.accountDeleted', { name: accountName(snapshot.account) }),
+          actionLabel: undo,
+          onAction: () => void write((l) => l.restoreAccount(snapshot)),
+        });
+      },
+
+      async addTransfer(input) {
+        const result = await write((l) => l.addTransfer(input));
+        if (!result.ok) return false;
+        const [from] = result.value;
+        await requestPersistenceOnce();
+        notify({
+          kind: 'success',
+          message: i18n.t('toast.transferAdded', transferDetail(input)),
+          actionLabel: undo,
+          onAction: () => void write((l) => l.undoAddTransfer(from.transferId!)),
+        });
+        return true;
+      },
+      async updateTransfer(transferId, input) {
+        const original = data.transactions.filter((t) => t.transferId === transferId);
+        const result = await write((l) => l.updateTransfer(transferId, input));
+        if (!result.ok) return false;
+        notify({
+          kind: 'success',
+          message: i18n.t('toast.transferUpdated', transferDetail(input)),
+          ...(original.length > 0 ? { actionLabel: undo, onAction: () => void write((l) => l.restoreTransactions(original)) } : {}),
+        });
+        return true;
+      },
+      async deleteTransfer(transferId) {
+        const result = await write((l) => l.deleteTransfer(transferId));
+        if (!result.ok) return;
+        const snapshot = result.value;
+        const from = snapshot.find((t) => t.type === 'expense');
+        const to = snapshot.find((t) => t.type === 'income');
+        notify({
+          kind: 'success',
+          message: i18n.t('toast.transferDeleted', {
+            amount: formatMoney(snapshot[0]?.cents ?? 0, settings.language),
+            from: nameOfAccountId(from?.accountId),
+            to: nameOfAccountId(to?.accountId),
+          }),
+          actionLabel: undo,
+          onAction: () => void write((l) => l.restoreTransactions(snapshot)),
+        });
       },
       async setSortOrder(order) {
         await write((l) => l.updateSettings({ sortOrder: order }));
@@ -398,27 +510,35 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       async startFresh(openingCents) {
         await write(async (l) => {
           await l.seedStarterCategories();
-          await l.updateSettings({ onboarded: true, openingCents });
+          await l.seedMainAccount(openingCents);
+          await l.updateSettings({ onboarded: true });
         });
       },
 
-      async applyImport(imported, importedRules, extras, options) {
+      async applyImport(preview, extras, options) {
+        const { data: imported, rules: importedRules, accountsInFile } = preview;
+        // A backup from before Accounts kept the Opening balance in its settings: it belongs to the one Account.
+        const { openingCents: legacyOpening, ...importedSettings } = extras?.settings ?? {};
+        const importedAccounts =
+          !accountsInFile && legacyOpening !== undefined
+            ? preview.accounts.map((a, i) => (i === 0 ? { ...a, openingCents: legacyOpening } : a))
+            : preview.accounts;
         const before = await ledgerRef.current!.load();
         const beforePhotos = await ledgerRef.current!.allAttachments();
         const photos = [...(extras?.photos ?? new Map<string, PhotoFile[]>())].flatMap(([transactionId, files]) =>
           files.map((f) => ({ transactionId, mime: f.mime, data: f.bytes.slice().buffer as ArrayBuffer })),
         );
         const result = await write(async (l) => {
-          await l.replaceAll(imported, importedRules, photos);
+          await l.replaceAll(imported, importedRules, photos, importedAccounts);
           // From Drive: this device now holds exactly that copy.
-          const patch = { ...extras?.settings, ...(extras?.driveFile ? { driveFile: extras.driveFile, changesSinceDrive: 0 } : {}) };
+          const patch = { ...importedSettings, ...(extras?.driveFile ? { driveFile: extras.driveFile, changesSinceDrive: 0 } : {}) };
           if (Object.keys(patch).length > 0) await l.updateSettings(patch);
         });
         if (!result.ok) return;
         if (extras?.settings.language) applyLanguage(extras.settings.language);
         await runRecurring(true);
         // The opening balance is only in question when the backup did not carry it.
-        setOpeningCheck(extras?.settings.openingCents === undefined);
+        setOpeningCheck(!accountsInFile && legacyOpening === undefined);
         notify({
           kind: 'success',
           message: options?.message ?? i18n.t(options?.automatic ? 'drive.loadedNewer' : 'import.done'),
@@ -426,7 +546,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           onAction: () => {
             setOpeningCheck(false);
             void write(async (l) => {
-              await l.replaceAll(before.data, before.rules, beforePhotos);
+              await l.replaceAll(before.data, before.rules, beforePhotos, before.accounts);
               await l.updateSettings(options?.automatic ? { ...before.settings, changesSinceDrive: 1 } : before.settings);
             });
           },
@@ -442,7 +562,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       async exportBackup() {
         try {
-          const shared = await exportFiles(data, rules, i18n.t('export.shareTitle'));
+          const shared = await exportFiles(data, rules, accounts, i18n.t('export.shareTitle'));
           if (!shared) return false;
           await write((l) => l.updateSettings({ lastBackupAt: Date.now(), changesSinceBackup: 0 }));
           notify({ kind: 'success', message: i18n.t('export.done') });
@@ -467,7 +587,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       },
 
       async buildArchive() {
-        return exportArchive(await archiveContent(), categoryName);
+        return exportArchive(await archiveContent(), categoryName, accountName);
       },
 
       async recordDriveSave(file, included) {
@@ -495,7 +615,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         await write((l) => l.updateSettings(patch));
       },
     };
-  }, [ready, storageError, waitingForOtherCopy, data, rules, photoCounts, settings, queue.items, notify, dismissToast, pauseToast, resumeToast, saveFailed, openingCheck, write, refresh, runRecurring]);
+  }, [ready, storageError, waitingForOtherCopy, data, rules, accounts, accountFilter, scoped, openingCents, photoCounts, settings, queue.items, notify, dismissToast, pauseToast, resumeToast, saveFailed, openingCheck, write, refresh, runRecurring]);
 
   return <StoreContext.Provider value={store}>{children}</StoreContext.Provider>;
 }

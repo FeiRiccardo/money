@@ -125,16 +125,18 @@ test('export then import: erase everything, restore from the two CSV files, and 
 
   await page.getByRole('button', { name: 'Settings' }).click();
   await page.getByRole('button', { name: /^Export/ }).click();
-  await expect.poll(() => downloads.length).toBe(2);
+  await expect.poll(() => downloads.length).toBe(3);
 
   const transactionsPath = downloads.find((p) => p.includes('transactions-'))!;
   const categoriesPath = downloads.find((p) => p.includes('categories-'))!;
+  const accountsPath = downloads.find((p) => p.includes('accounts-'))!;
+  expect(readFileSync(accountsPath, 'utf8')).toContain('Main account,0.00,main');
   const transactionsCsv = readFileSync(transactionsPath, 'utf8');
   expect(transactionsCsv).toBe(
-    '﻿date,type,amount,categories,note\r\n' +
+    '﻿date,type,amount,categories,note,account,transfer\r\n' +
       `${transactionsCsv.split('\r\n')[1]}\r\n`, // date column is "today", so check the rest below
   );
-  expect(transactionsCsv).toContain(',expense,62.30,Groceries|Shopping,"Weekly shop, new pan"');
+  expect(transactionsCsv).toContain(',expense,62.30,Groceries|Shopping,"Weekly shop, new pan",Main account,');
   expect(readFileSync(categoriesPath, 'utf8')).toContain('expense,Groceries,groceries');
 
   // Erase everything: the app returns to the first-run screen.
@@ -163,9 +165,12 @@ test('import: a file with bad rows lists them and still imports the valid rows',
   const fs = await import('node:fs');
   const transactions = testInfo.outputPath('t.csv');
   const categories = testInfo.outputPath('c.csv');
+  // Dated today, so the row shows on the month the home screen opens on.
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   fs.writeFileSync(
     transactions,
-    'date,type,amount,categories,note\r\n2026-10-01,expense,10.00,Food,ok\r\n2026-13-45,expense,5.00,Food,bad date\r\n',
+    `date,type,amount,categories,note\r\n${today},expense,10.00,Food,ok\r\n2026-13-45,expense,5.00,Food,bad date\r\n`,
   );
   fs.writeFileSync(categories, 'type,name,default_key\r\nexpense,Food,\r\n');
 

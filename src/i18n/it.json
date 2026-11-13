@@ -28,7 +28,8 @@
     "otherExpense": "Altro",
     "salary": "Stipendio",
     "gifts": "Regali",
-    "otherIncome": "Altro"
+    "otherIncome": "Altro",
+    "main": "Conto principale"
   },
   "home": {
     "report": "Report mensile",
@@ -123,7 +124,9 @@
     "saveFailedBody": "Non è stato possibile salvare questa modifica su questo dispositivo. Fai subito un backup per non perdere i dati.",
     "duplicate": "Duplica",
     "recent": "Recenti",
-    "recentHelp": "Tocca per copiare"
+    "recentHelp": "Tocca per copiare",
+    "account": "Conto",
+    "transfer": "Trasferimento"
   },
   "categories": {
     "title": "Categorie",
@@ -169,7 +172,7 @@
     "importHelp": "Sostituisce tutto con i due file CSV di un backup.",
     "lastBackup": "Ultimo backup",
     "never": "Mai",
-    "openingNote": "Il saldo iniziale e la lingua non sono nei file di backup.",
+    "openingNote": "La lingua non è nei file CSV. Lo ZIP la conserva.",
     "storage": "Archiviazione",
     "storageProtected": "Protetta",
     "storageProtectedHelp": "Il browser ha promesso di non cancellare da solo i dati dell'app.",
@@ -187,7 +190,9 @@
     "privacy": "I tuoi dati restano su questo dispositivo.",
     "version": "Versione {{version}}",
     "recurring": "Ricorrenti",
-    "recurringHelp": "Affitto, stipendio, abbonamenti e altre transazioni che si ripetono."
+    "recurringHelp": "Affitto, stipendio, abbonamenti e altre transazioni che si ripetono.",
+    "accounts": "Conti",
+    "accountsHelp": "Conto principale, risparmi, TFR…"
   },
   "banner": {
     "backupTitle_one": "{{count}} modifica non salvata nel backup",
@@ -215,7 +220,7 @@
     "photosToImport": "Verranno importate {{count}} foto di ricevute.",
     "title": "Importa un backup",
     "chooseFiles": "Scegli i due file di backup",
-    "chooseHelp": "Seleziona insieme i file delle transazioni e delle categorie. Il file delle ricorrenti è facoltativo.",
+    "chooseHelp": "Seleziona insieme i file delle Transazioni e delle Categorie. I file dei Conti e delle Ricorrenze sono facoltativi.",
     "needBoth": "Seleziona entrambi i file: uno con le transazioni e uno con le categorie.",
     "unreadable": "Non è stato possibile leggere un file.",
     "previewTitle": "Pronto per l'importazione",
@@ -234,22 +239,28 @@
       "invalidType": "il tipo deve essere expense o income",
       "invalidAmount": "l'importo deve essere maggiore di zero con al massimo 2 decimali",
       "noCategories": "nessuna categoria indicata",
-      "invalidName": "il nome della categoria non è valido",
-      "duplicateName": "il nome della categoria è duplicato",
+      "invalidName": "il nome non è valido",
+      "duplicateName": "il nome è duplicato",
       "invalidFrequency": "la frequenza deve essere weekly, monthly o yearly",
-      "invalidDateRange": "la data di fine è prima della data di inizio"
+      "invalidDateRange": "la data di fine è prima della data di inizio",
+      "invalidOpening": "il saldo iniziale non è un importo valido",
+      "invalidTransfer": "un trasferimento richiede una spesa e un’entrata dello stesso importo su due conti diversi"
     },
     "fatal": {
-      "transactionsColumns": "Il file delle transazioni non ha le colonne previste (date, type, amount, categories, note).",
+      "transactionsColumns": "Il file delle transazioni non ha le colonne previste (date, type, amount, categories, note, account, transfer).",
       "categoriesColumns": "Il file delle categorie non ha le colonne previste (type, name, default_key).",
-      "recurringColumns": "Il file delle ricorrenti non ha le colonne previste (type, amount, categories, note, frequency, start_date, end_date, next_date)."
+      "recurringColumns": "Il file delle ricorrenti non ha le colonne previste (type, amount, categories, note, frequency, start_date, end_date, next_date).",
+      "accountsColumns": "Il file dei Conti non ha le colonne previste (name, opening_balance, default_key)."
     },
     "openingCheckTitle": "Controlla il saldo iniziale",
-    "openingCheckBody": "Il saldo iniziale non è nei file di backup, quindi controllalo.",
+    "openingCheckBody": "Questo backup non indica cosa conteneva ogni conto all’inizio, quindi controlla il saldo iniziale.",
     "fileRecurring": "Ricorrenti",
     "rulesToImport_one": "Verrà ripristinata anche {{count}} regola ricorrente.",
     "rulesToImport_many": "Verranno ripristinate anche {{count}} regole ricorrenti.",
-    "rulesToImport_other": "Verranno ripristinate anche {{count}} regole ricorrenti."
+    "rulesToImport_other": "Verranno ripristinate anche {{count}} regole ricorrenti.",
+    "fileAccounts": "Conti",
+    "accountsToImport_one": "Verrà ripristinato anche {{count}} conto.",
+    "accountsToImport_other": "Verranno ripristinati anche {{count}} conti."
   },
   "export": {
     "zipDone": "Backup salvato. Conserva il file ZIP fuori dal browser.",
@@ -332,7 +343,13 @@
     "exportFailed": "Esportazione non riuscita. Riprova.",
     "dismiss": "Chiudi",
     "categoryCounted": "“{{name}}” torna a contare nel riepilogo",
-    "categoryNotCounted": "“{{name}}” non conta più nel riepilogo"
+    "categoryNotCounted": "“{{name}}” non conta più nel riepilogo",
+    "accountCreated": "Conto “{{name}}” creato",
+    "accountSaved": "Conto “{{name}}” salvato",
+    "accountDeleted": "Conto “{{name}}” eliminato",
+    "transferAdded": "Trasferiti {{amount}} · {{from}} → {{to}}",
+    "transferUpdated": "Trasferimento modificato · {{amount}} · {{from}} → {{to}}",
+    "transferDeleted": "Trasferimento eliminato · {{amount}} · {{from}} → {{to}}"
   },
   "drive": {
     "title": "Google Drive",
@@ -370,5 +387,42 @@
     "home": "Home",
     "menu": "Menu principale",
     "shortcut": "Scorciatoia da tastiera: {{key}}"
+  },
+  "accounts": {
+    "title": "Conti",
+    "all": "Tutti i conti",
+    "account": "Conto",
+    "total": "Totale",
+    "help": "Tieni saldi separati per risparmi, TFR o altri conti. Sposta i soldi da uno all’altro con un Trasferimento.",
+    "newButton": "+ Nuovo conto",
+    "newTitle": "Nuovo conto",
+    "editTitle": "Modifica conto",
+    "name": "Nome",
+    "opening": "Saldo iniziale (€)",
+    "openingHelp": "Quanto c’era in questo conto prima di iniziare a registrarlo. Può essere negativo.",
+    "invalidOpening": "Inserisci un importo valido, per esempio 1250,50 oppure -300.",
+    "deleteInfoNone": "Questo conto non ha transazioni.",
+    "deleteInfo_one": "Verrà eliminata anche la sua {{count}} transazione. Puoi annullare.",
+    "deleteInfo_other": "Verranno eliminate anche le sue {{count}} transazioni. Puoi annullare.",
+    "deleteTransfers": "L’altro lato dei suoi Trasferimenti resta negli altri conti come transazione normale.",
+    "lastOne": "Serve almeno un conto.",
+    "errors": {
+      "empty": "Inserisci un nome.",
+      "tooLong": "Usa al massimo 30 caratteri.",
+      "pipe": "Il carattere \"|\" non è consentito.",
+      "duplicate": "Un altro conto ha già questo nome.",
+      "reserved": "Questo nome non è disponibile."
+    }
+  },
+  "transfer": {
+    "label": "Trasferimento",
+    "titleNew": "Nuovo trasferimento",
+    "titleEdit": "Modifica trasferimento",
+    "help": "Sposta soldi tra i tuoi conti. Cambia il saldo di ciascun conto ma non conta come entrata o spesa.",
+    "from": "Da",
+    "to": "A",
+    "toAccount": "A {{account}}",
+    "fromAccount": "Da {{account}}",
+    "sameAccount": "Scegli due conti diversi."
   }
 }

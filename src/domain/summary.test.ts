@@ -9,7 +9,7 @@ const tx = (
   cents: number,
   categoryIds: string[],
   retired: string[] = [],
-): Transaction => ({ id: `${date}-${cents}-${categoryIds.join()}`, date, type, cents, categoryIds, retired, note: '' });
+): Transaction => ({ id: `${date}-${cents}-${categoryIds.join()}`, accountId: 'a1', date, type, cents, categoryIds, retired, note: '' });
 
 const nameOf = (c: Category) => c.name;
 

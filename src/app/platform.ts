@@ -1,7 +1,7 @@
 import { exportArchive, type ArchiveContent } from '../domain/archive';
 import { exportBackup, type BackupFiles } from '../domain/backup';
-import type { LedgerData, RecurringRule } from '../domain/types';
-import { categoryName } from '../i18n';
+import type { Account, LedgerData, RecurringRule } from '../domain/types';
+import { accountName, categoryName } from '../i18n';
 
 export function isIos(): boolean {
   const ua = navigator.userAgent;
@@ -40,7 +40,12 @@ function stamp(now: Date): string {
 
 export function backupFileNames(now: Date = new Date()) {
   const day = stamp(now);
-  return { transactions: `transactions-${day}.csv`, categories: `categories-${day}.csv`, recurring: `recurring-${day}.csv` };
+  return {
+    transactions: `transactions-${day}.csv`,
+    categories: `categories-${day}.csv`,
+    recurring: `recurring-${day}.csv`,
+    accounts: `accounts-${day}.csv`,
+  };
 }
 
 function download(file: File): void {
@@ -59,14 +64,15 @@ function download(file: File): void {
  * (so they can land in Files, iCloud Drive or Google Drive), otherwise as two downloads.
  * Returns false when the user dismissed the share sheet.
  */
-export async function exportFiles(data: LedgerData, rules: RecurringRule[], shareTitle: string): Promise<boolean> {
-  const files: BackupFiles = exportBackup(data, categoryName, rules);
+export async function exportFiles(data: LedgerData, rules: RecurringRule[], accounts: Account[], shareTitle: string): Promise<boolean> {
+  const files: BackupFiles = exportBackup(data, categoryName, rules, accounts, accountName);
   const names = backupFileNames();
   const list = [
     new File([files.transactionsCsv], names.transactions, { type: 'text/csv' }),
     new File([files.categoriesCsv], names.categories, { type: 'text/csv' }),
     // Only when there is at least one recurring rule.
     ...(files.recurringCsv ? [new File([files.recurringCsv], names.recurring, { type: 'text/csv' })] : []),
+    ...(files.accountsCsv ? [new File([files.accountsCsv], names.accounts, { type: 'text/csv' })] : []),
   ];
   if (navigator.canShare?.({ files: list })) {
     try {
@@ -82,7 +88,7 @@ export async function exportFiles(data: LedgerData, rules: RecurringRule[], shar
 
 /** Hands the user one ZIP file with everything, through the share sheet or as a download. Returns false if dismissed. */
 export async function exportArchiveFile(content: ArchiveContent, shareTitle: string): Promise<boolean> {
-  const bytes = exportArchive(content, categoryName);
+  const bytes = exportArchive(content, categoryName, accountName);
   return saveFile(new File([bytes as BlobPart], `money-backup-${stamp(new Date())}.zip`, { type: 'application/zip' }), shareTitle);
 }
 

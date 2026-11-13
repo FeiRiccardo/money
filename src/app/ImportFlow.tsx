@@ -14,6 +14,8 @@ export interface ChosenFiles {
   categoriesCsv: string;
   /** Optional: backups made before recurring rules existed do not have it. */
   recurringCsv?: string;
+  /** Optional: backups made before Accounts existed do not have it. */
+  accountsCsv?: string;
 }
 
 /** Picks the files out of the selection by their header row. Transactions and Categories are required. */
@@ -21,8 +23,9 @@ export function classifyFiles(texts: string[]): ChosenFiles | null {
   const transactionsCsv = texts.find((text) => firstLine(text).startsWith('date,'));
   const categoriesCsv = texts.find((text) => firstLine(text).startsWith('type,name'));
   const recurringCsv = texts.find((text) => firstLine(text).startsWith('type,amount'));
+  const accountsCsv = texts.find((text) => firstLine(text).startsWith('name,opening_balance'));
   if (transactionsCsv === undefined || categoriesCsv === undefined) return null;
-  return { transactionsCsv, categoriesCsv, recurringCsv };
+  return { transactionsCsv, categoriesCsv, recurringCsv, accountsCsv };
 }
 
 /**
@@ -98,13 +101,18 @@ export function ImportFlow({
   async function confirm() {
     if (!preview) return;
     setBusy(true);
-    await store.applyImport(preview.data, preview.rules, extras ?? undefined);
+    await store.applyImport(preview, extras ?? undefined);
     setBusy(false);
     onImported?.();
     onClose();
   }
 
-  const fileLabel = { transactions: 'import.fileTransactions', categories: 'import.fileCategories', recurring: 'import.fileRecurring' } as const;
+  const fileLabel = {
+    transactions: 'import.fileTransactions',
+    categories: 'import.fileCategories',
+    recurring: 'import.fileRecurring',
+    accounts: 'import.fileAccounts',
+  } as const;
 
   return (
     <Dialog title={t(source ? 'drive.restoreTitle' : 'import.title')} onClose={onClose}>
@@ -134,6 +142,7 @@ export function ImportFlow({
               categories: preview.data.categories.length,
             })}
           </p>
+          {preview.accountsInFile && <p>{t('import.accountsToImport', { count: preview.accounts.length })}</p>}
           {preview.rules.length > 0 && <p>{t('import.rulesToImport', { count: preview.rules.length })}</p>}
           {extras && extras.photos.size > 0 && (
             <p>{t('import.photosToImport', { count: [...extras.photos.values()].reduce((n, files) => n + files.length, 0) })}</p>

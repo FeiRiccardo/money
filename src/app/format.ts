@@ -8,7 +8,8 @@ export function formatMoney(cents: number, language: Language): string {
 
 /** Cents to the text shown in the amount field (dot decimal, always accepted back by parseAmount). */
 export function centsToInput(cents: number): string {
-  return `${Math.floor(cents / 100)}.${String(cents % 100).padStart(2, '0')}`;
+  const abs = Math.abs(cents);
+  return `${cents < 0 ? '-' : ''}${Math.floor(abs / 100)}.${String(abs % 100).padStart(2, '0')}`;
 }
 
 const pad = (n: number) => String(n).padStart(2, '0');

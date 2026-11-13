@@ -12,7 +12,7 @@ const tx = (
   note = '',
   retired: string[] = [],
   createdAt = 0,
-): Transaction => ({ id, date, type, cents, categoryIds, retired, note, createdAt });
+): Transaction => ({ id, accountId: 'a1', date, type, cents, categoryIds, retired, note, createdAt });
 const nameOf = (c: Category) => c.name;
 
 const data: LedgerData = {

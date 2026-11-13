@@ -11,7 +11,7 @@ const tx = (
   categoryIds: string[],
   note = '',
   extra: Partial<Transaction> = {},
-): Transaction => ({ id: `t${++n}`, date, type, cents, categoryIds, retired: [], note, ...extra });
+): Transaction => ({ id: `t${++n}`, accountId: 'a1', date, type, cents, categoryIds, retired: [], note, ...extra });
 
 const nameOf = (c: Category) => c.name;
 const categories = [

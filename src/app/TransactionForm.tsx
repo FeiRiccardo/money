@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { parseAmount, type NameError } from '../domain/rules';
 import { sortTransactions } from '../domain/search';
 import type { Frequency, Transaction, TxType } from '../domain/types';
-import { categoryName } from '../i18n';
+import { accountName, categoryName } from '../i18n';
 import { centsToInput, formatMoney, todayISO } from './format';
 import { NO_PHOTO_CHANGES, PhotoSection, type PhotoDraft } from './PhotoSection';
 import { frequencyLabel, RuleDialog } from './RecurringScreen';
@@ -16,6 +16,7 @@ export interface Prefill {
   cents: number;
   categoryIds: string[];
   note: string;
+  accountId?: string;
 }
 
 const FREQUENCIES: Frequency[] = ['weekly', 'monthly', 'yearly'];
@@ -25,9 +26,11 @@ interface Props {
   prefill?: Prefill;
   onClose: () => void;
   onDuplicate: (prefill: Prefill) => void;
+  /** Switches to the Transfer form (only offered when there is more than one account). */
+  onTransfer: () => void;
 }
 
-export function TransactionForm({ transaction, prefill, onClose, onDuplicate }: Props) {
+export function TransactionForm({ transaction, prefill, onClose, onDuplicate, onTransfer }: Props) {
   const { t } = useTranslation();
   const store = useStore();
   const { language } = store;
@@ -35,6 +38,12 @@ export function TransactionForm({ transaction, prefill, onClose, onDuplicate }: 
   const liveIds = useMemo(() => new Set(store.data.categories.map((c) => c.id)), [store.data.categories]);
   const source = transaction ?? prefill;
 
+  const accounts = store.accounts;
+  // A new Transaction goes to the chosen account, else to the one used last.
+  const [accountId, setAccountId] = useState(() => {
+    const wanted = transaction?.accountId ?? prefill?.accountId ?? store.accountFilter ?? sortTransactions(store.data.transactions, 'newest')[0]?.accountId;
+    return accounts.some((a) => a.id === wanted) ? wanted! : accounts[0]?.id;
+  });
   const [type, setType] = useState<TxType>(source?.type ?? 'expense');
   const [amount, setAmount] = useState(source ? centsToInput(source.cents) : '');
   const [date, setDate] = useState(transaction?.date ?? todayISO());
@@ -122,7 +131,7 @@ export function TransactionForm({ transaction, prefill, onClose, onDuplicate }: 
   async function save() {
     if (!canSave || cents === null) return;
     setSaving(true);
-    const input = { date, type, cents, categoryIds: selected, retired, note: note.trim() };
+    const input = { accountId, date, type, cents, categoryIds: selected, retired, note: note.trim() };
     const schedule = !rule && repeat !== 'never' ? { frequency: repeat, endDate: repeatEnd === '' ? null : repeatEnd } : undefined;
     const changes = { added: photos.added.map((a) => a.input), removedIds: photos.removedIds };
     const ok = editing
@@ -166,6 +175,7 @@ export function TransactionForm({ transaction, prefill, onClose, onDuplicate }: 
           <button className={type === 'income' ? 'on' : ''} onClick={() => switchType('income')}>
             {t('form.income')}
           </button>
+          {!editing && accounts.length > 1 && <button onClick={onTransfer}>{t('form.transfer')}</button>}
         </div>
         {editing ? (
           <button className="link danger" onClick={() => void remove()}>
@@ -255,6 +265,18 @@ export function TransactionForm({ transaction, prefill, onClose, onDuplicate }: 
         {nameError && <div className="error">{t(`categories.errors.${nameError}`)}</div>}
 
         <div className="row-fields">
+          {accounts.length > 1 && (
+            <label className="field">
+              <span>{t('form.account')}</span>
+              <select value={accountId} onChange={(e) => setAccountId(e.target.value)} aria-label={t('form.account')}>
+                {accounts.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {accountName(a)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <label className="field">
             <span>{t('form.date')}</span>
             <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
@@ -306,7 +328,13 @@ export function TransactionForm({ transaction, prefill, onClose, onDuplicate }: 
         {editing && (
           <button
             className="btn"
-            onClick={() => onDuplicate({ type: transaction.type, cents: transaction.cents, categoryIds: transaction.categoryIds, note: transaction.note })}
+            onClick={() => onDuplicate({
+                type: transaction.type,
+                cents: transaction.cents,
+                categoryIds: transaction.categoryIds,
+                note: transaction.note,
+                accountId: transaction.accountId,
+              })}
           >
             {t('form.duplicate')}
           </button>

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { buildReport } from '../domain/report';
 import type { SummaryLine } from '../domain/summary';
 import type { TxType } from '../domain/types';
-import { categoryName } from '../i18n';
+import { accountName, categoryName } from '../i18n';
 import { dayLabel, formatMoney, monthLabel } from './format';
 import { saveReportPdf } from './platform';
 import { reportPdf } from './reportPdf';
@@ -12,16 +12,18 @@ import { useStore } from './store';
 /** A print-ready monthly report. "Print / Save as PDF" opens the browser's print dialog. */
 export function ReportScreen({ month, onBack }: { month: string; onBack: () => void }) {
   const { t } = useTranslation();
-  const { data, settings, language, notify } = useStore();
+  const { scoped: data, openingCents, accounts, accountFilter, language, notify } = useStore();
+  const account = accounts.length > 1 ? accounts.find((a) => a.id === accountFilter) : undefined;
+  const accountLabel = accounts.length > 1 ? (account ? accountName(account) : t('accounts.all')) : undefined;
   const [saving, setSaving] = useState(false);
-  const report = useMemo(() => buildReport(data, month, settings.openingCents, categoryName), [data, month, settings.openingCents]);
+  const report = useMemo(() => buildReport(data, month, openingCents, categoryName), [data, month, openingCents]);
   const money = (cents: number) => formatMoney(cents, language);
   const today = new Intl.DateTimeFormat(language === 'it' ? 'it-IT' : 'en-IE', { dateStyle: 'long' }).format(new Date());
 
   async function downloadPdf() {
     setSaving(true);
     try {
-      const done = await saveReportPdf(reportPdf(report, language, t, today), month, t('report.title'));
+      const done = await saveReportPdf(reportPdf(report, language, t, today, accountLabel), month, t('report.title'));
       if (done) notify({ kind: 'success', message: t('report.saved') });
     } catch {
       notify({ kind: 'error', message: t('report.failed') });
@@ -52,6 +54,7 @@ export function ReportScreen({ month, onBack }: { month: string; onBack: () => v
         </div>
         <article className="report" data-testid="report">
           <h1 className="report-title">{t('report.heading', { month: monthLabel(month, language) })}</h1>
+          {accountLabel && <p className="report-account" data-testid="report-account"><b>{t('accounts.account')}:</b> {accountLabel}</p>}
           <p className="muted small">{t('report.generated', { date: today })}</p>
 
           <table className="report-table totals-table">
@@ -99,8 +102,8 @@ export function ReportScreen({ month, onBack }: { month: string; onBack: () => v
                       </tr>
                       {day.items.map((item) => (
                         <tr key={item.id} data-testid="report-row">
-                          <td>{item.note || item.categories[0]}</td>
-                          <td className="muted small">{item.categories.join(', ')}</td>
+                          <td>{item.note || (item.transfer ? t('transfer.label') : item.categories[0])}</td>
+                          <td className="muted small">{item.transfer ? t('transfer.label') : item.categories.join(', ')}</td>
                           <td className={'amount ' + item.type}>{signedMoney(item.type, item.cents)}</td>
                         </tr>
                       ))}

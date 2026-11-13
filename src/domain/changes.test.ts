@@ -6,7 +6,7 @@ const nameOf = (c: Category) => c.name;
 const groceries: Category = { id: 'g', type: 'expense', name: 'Groceries', lastUsedAt: 0 };
 
 function tx(id: string, note: string, cents = 1000, categoryId = 'g'): Transaction {
-  return { id, date: '2026-10-01', type: 'expense', cents, categoryIds: [categoryId], retired: [], note };
+  return { id, accountId: 'a1', date: '2026-10-01', type: 'expense', cents, categoryIds: [categoryId], retired: [], note };
 }
 const ledger = (...transactions: Transaction[]): LedgerData => ({ categories: [groceries], transactions });
 

@@ -4,7 +4,7 @@ import { activeBanner } from '../domain/reminders';
 import { sortTransactions } from '../domain/search';
 import { balance, summarize, type SummaryLine } from '../domain/summary';
 import type { Transaction, TxType } from '../domain/types';
-import { categoryName } from '../i18n';
+import { accountName, categoryName } from '../i18n';
 import { dayLabel, formatMoney, monthLabel, monthOf, shiftMonth, todayISO } from './format';
 import { useDesktop } from './layout';
 import { isIos, isStandalone } from './platform';
@@ -25,17 +25,17 @@ interface HomeProps {
 export function Home({ onAdd, onEdit, onSettings, onSearch, onCharts, onReport }: HomeProps) {
   const { t } = useTranslation();
   const store = useStore();
-  const { data, settings, language } = store;
+  const { data, scoped, accounts, accountFilter, openingCents, settings, language } = store;
   const [month, setMonth] = useState(() => monthOf(todayISO()));
   const [tab, setTab] = useState<Tab>('transactions');
   const desktop = useDesktop();
 
   const money = (cents: number) => formatMoney(cents, language);
   const monthTransactions = useMemo(
-    () => sortTransactions(data.transactions.filter((tx) => tx.date.startsWith(month)), settings.sortOrder),
-    [data.transactions, month, settings.sortOrder],
+    () => sortTransactions(scoped.transactions.filter((tx) => tx.date.startsWith(month)), settings.sortOrder),
+    [scoped.transactions, month, settings.sortOrder],
   );
-  const summary = useMemo(() => summarize(data, month, categoryName), [data, month]);
+  const summary = useMemo(() => summarize(scoped, month, categoryName), [scoped, month]);
   const byDate = settings.sortOrder === 'newest' || settings.sortOrder === 'oldest';
   const days = byDate ? [...new Set(monthTransactions.map((tx) => tx.date))] : [];
 
@@ -79,6 +79,20 @@ export function Home({ onAdd, onEdit, onSettings, onSearch, onCharts, onReport }
       </button>
     </div>
   );
+
+  const picker =
+    accounts.length > 1 ? (
+      <div className="account-picker" role="group" aria-label={t('accounts.title')}>
+        <button className={accountFilter === null ? 'chip sel' : 'chip'} aria-pressed={accountFilter === null} onClick={() => store.setAccountFilter(null)}>
+          {t('accounts.all')}
+        </button>
+        {accounts.map((a) => (
+          <button key={a.id} className={accountFilter === a.id ? 'chip sel' : 'chip'} aria-pressed={accountFilter === a.id} onClick={() => store.setAccountFilter(a.id)}>
+            {accountName(a)}
+          </button>
+        ))}
+      </div>
+    ) : null;
 
   const banners = (
     <>
@@ -148,13 +162,13 @@ export function Home({ onAdd, onEdit, onSettings, onSearch, onCharts, onReport }
                 <span>{money(net)}</span>
               </div>
               {dayTx.map((tx) => (
-                <TransactionRow key={tx.id} tx={tx} onOpen={onEdit} />
+                <TransactionRow key={tx.id} tx={tx} onOpen={onEdit} showAccount={accountFilter === null && accounts.length > 1} />
               ))}
             </section>
           );
         })}
 
-      {!byDate && monthTransactions.map((tx) => <TransactionRow key={tx.id} tx={tx} onOpen={onEdit} showDate />)}
+      {!byDate && monthTransactions.map((tx) => <TransactionRow key={tx.id} tx={tx} onOpen={onEdit} showDate showAccount={accountFilter === null && accounts.length > 1} />)}
     </div>
   );
 
@@ -231,11 +245,12 @@ export function Home({ onAdd, onEdit, onSettings, onSearch, onCharts, onReport }
         </header>
         <div className="scroll home-body">
           {banners}
+          {picker}
           <div className="kpis">
             <div className="kpi">
               <small className="muted">{t('home.balance')}</small>
               <b className="amount" data-testid="balance">
-                {money(balance(data, settings.openingCents))}
+                {money(balance(scoped, openingCents))}
               </b>
             </div>
             {totals}
@@ -264,11 +279,12 @@ export function Home({ onAdd, onEdit, onSettings, onSearch, onCharts, onReport }
           <div>
             <small className="muted">{t('home.balance')}</small>
             <b className="balance" data-testid="balance">
-              {money(balance(data, settings.openingCents))}
+              {money(balance(scoped, openingCents))}
             </b>
           </div>
           {icons}
         </div>
+        {picker}
       </header>
 
       <div className="tabs" role="tablist">

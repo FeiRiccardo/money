@@ -9,6 +9,8 @@ export interface ReportItem {
   note: string;
   /** Live Category names first, then Retired labels. */
   categories: string[];
+  /** Half of a Transfer between Accounts: it has no Categories. */
+  transfer: boolean;
 }
 
 export interface ReportDay {
@@ -65,6 +67,7 @@ export function buildReport(
       type: t.type,
       cents: t.cents,
       note: t.note,
+      transfer: t.transferId !== undefined,
       categories: [...t.categoryIds.flatMap((id) => (byId.has(id) ? [nameOf(byId.get(id)!)] : [])), ...t.retired],
     });
   }

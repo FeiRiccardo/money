@@ -148,8 +148,7 @@ export function DriveProvider({ arrival, children }: { arrival: Arrival; childre
       if (unsaved()) return conflictWith(loaded.file);
       const { added, removed } = countChanges(storeRef.current.data, archive.preview.data, categoryName);
       await storeRef.current.applyImport(
-        archive.preview.data,
-        archive.preview.rules,
+        archive.preview,
         { settings: archive.settings, photos: archive.attachments, driveFile: loaded.file },
         { automatic: true, message: loadedMessage(added, removed) },
       );

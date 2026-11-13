@@ -28,7 +28,8 @@
     "otherExpense": "Other",
     "salary": "Salary",
     "gifts": "Gifts",
-    "otherIncome": "Other"
+    "otherIncome": "Other",
+    "main": "Main account"
   },
   "home": {
     "report": "Monthly report",
@@ -123,7 +124,9 @@
     "saveFailedBody": "This change could not be saved on this device. Back up your data now so you don't lose it.",
     "duplicate": "Duplicate",
     "recent": "Recent",
-    "recentHelp": "Tap to copy"
+    "recentHelp": "Tap to copy",
+    "account": "Account",
+    "transfer": "Transfer"
   },
   "categories": {
     "title": "Categories",
@@ -168,7 +171,7 @@
     "importHelp": "Replaces everything with the two CSV files from a backup.",
     "lastBackup": "Last backed up",
     "never": "Never",
-    "openingNote": "The opening balance and the language are not stored in the backup files.",
+    "openingNote": "The language is not stored in the CSV files. The ZIP keeps it.",
     "storage": "Storage",
     "storageProtected": "Protected",
     "storageProtectedHelp": "The browser promised not to erase this app's data on its own.",
@@ -186,7 +189,9 @@
     "privacy": "Your data stays on this device.",
     "version": "Version {{version}}",
     "recurring": "Recurring",
-    "recurringHelp": "Rent, salary, subscriptions and other Transactions that repeat."
+    "recurringHelp": "Rent, salary, subscriptions and other Transactions that repeat.",
+    "accounts": "Accounts",
+    "accountsHelp": "Main account, savings, TFR…"
   },
   "banner": {
     "backupTitle_one": "{{count}} change not backed up",
@@ -213,7 +218,7 @@
     "photosToImport": "{{count}} receipt photos will be imported.",
     "title": "Import a backup",
     "chooseFiles": "Choose the two backup files",
-    "chooseHelp": "Select the Transactions and Categories files together. A Recurring file is optional.",
+    "chooseHelp": "Select the Transactions and Categories files together. Accounts and Recurring files are optional.",
     "needBoth": "Select both files: one with Transactions and one with Categories.",
     "unreadable": "A file could not be read.",
     "previewTitle": "Ready to import",
@@ -231,21 +236,27 @@
       "invalidType": "type must be expense or income",
       "invalidAmount": "amount must be above zero with at most 2 decimals",
       "noCategories": "no Category given",
-      "invalidName": "Category name is not valid",
-      "duplicateName": "Category name is a duplicate",
+      "invalidName": "name is not valid",
+      "duplicateName": "name is a duplicate",
       "invalidFrequency": "frequency must be weekly, monthly or yearly",
-      "invalidDateRange": "the end date is before the start date"
+      "invalidDateRange": "the end date is before the start date",
+      "invalidOpening": "opening balance is not a valid amount",
+      "invalidTransfer": "a transfer needs one expense and one income of the same amount on two different accounts"
     },
     "fatal": {
-      "transactionsColumns": "The Transactions file does not have the expected columns (date, type, amount, categories, note).",
+      "transactionsColumns": "The Transactions file does not have the expected columns (date, type, amount, categories, note, account, transfer).",
       "categoriesColumns": "The Categories file does not have the expected columns (type, name, default_key).",
-      "recurringColumns": "The Recurring file does not have the expected columns (type, amount, categories, note, frequency, start_date, end_date, next_date)."
+      "recurringColumns": "The Recurring file does not have the expected columns (type, amount, categories, note, frequency, start_date, end_date, next_date).",
+      "accountsColumns": "The Accounts file does not have the expected columns (name, opening_balance, default_key)."
     },
     "openingCheckTitle": "Check your opening balance",
-    "openingCheckBody": "The opening balance is not stored in the backup files, so please check it.",
+    "openingCheckBody": "This backup does not say what each account held at the start, so please check the opening balance.",
     "fileRecurring": "Recurring",
     "rulesToImport_one": "{{count}} recurring rule will also be restored.",
-    "rulesToImport_other": "{{count}} recurring rules will also be restored."
+    "rulesToImport_other": "{{count}} recurring rules will also be restored.",
+    "fileAccounts": "Accounts",
+    "accountsToImport_one": "{{count}} account will also be restored.",
+    "accountsToImport_other": "{{count}} accounts will also be restored."
   },
   "export": {
     "zipDone": "Backup saved. Keep the ZIP somewhere outside the browser.",
@@ -325,7 +336,13 @@
     "exportFailed": "Export failed. Please try again.",
     "dismiss": "Dismiss",
     "categoryCounted": "“{{name}}” counts in the summary again",
-    "categoryNotCounted": "“{{name}}” is no longer counted in the summary"
+    "categoryNotCounted": "“{{name}}” is no longer counted in the summary",
+    "accountCreated": "Account “{{name}}” created",
+    "accountSaved": "Account “{{name}}” saved",
+    "accountDeleted": "Account “{{name}}” deleted",
+    "transferAdded": "Transferred {{amount}} · {{from}} → {{to}}",
+    "transferUpdated": "Transfer updated · {{amount}} · {{from}} → {{to}}",
+    "transferDeleted": "Transfer deleted · {{amount}} · {{from}} → {{to}}"
   },
   "drive": {
     "title": "Google Drive",
@@ -363,5 +380,42 @@
     "home": "Home",
     "menu": "Main menu",
     "shortcut": "Keyboard shortcut: {{key}}"
+  },
+  "accounts": {
+    "title": "Accounts",
+    "all": "All accounts",
+    "account": "Account",
+    "total": "Total",
+    "help": "Keep separate balances for savings, the TFR or any other account. Move money between them with a Transfer.",
+    "newButton": "+ New account",
+    "newTitle": "New account",
+    "editTitle": "Edit account",
+    "name": "Name",
+    "opening": "Opening balance (€)",
+    "openingHelp": "What was in this account before you started recording it. It can be negative.",
+    "invalidOpening": "Enter a valid amount, for example 1250.50 or -300.",
+    "deleteInfoNone": "This account has no Transactions.",
+    "deleteInfo_one": "Its {{count}} Transaction will be deleted too. You can undo this.",
+    "deleteInfo_other": "Its {{count}} Transactions will be deleted too. You can undo this.",
+    "deleteTransfers": "The other side of its Transfers stays on the other accounts as ordinary Transactions.",
+    "lastOne": "You need at least one account.",
+    "errors": {
+      "empty": "Enter a name.",
+      "tooLong": "Use at most 30 characters.",
+      "pipe": "The \"|\" character is not allowed.",
+      "duplicate": "Another account already has this name.",
+      "reserved": "This name is not available."
+    }
+  },
+  "transfer": {
+    "label": "Transfer",
+    "titleNew": "New transfer",
+    "titleEdit": "Edit transfer",
+    "help": "Moves money between your accounts. It changes each account's balance but does not count as income or an expense.",
+    "from": "From",
+    "to": "To",
+    "toAccount": "To {{account}}",
+    "fromAccount": "From {{account}}",
+    "sameAccount": "Choose two different accounts."
   }
 }

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { parseSignedAmount } from '../domain/rules';
+import { accountName } from '../i18n';
 import { centsToInput } from './format';
 import { useStore } from './store';
 import { Dialog } from './ui';
@@ -15,13 +16,15 @@ export function OpeningBalanceDialog({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
-  const { settings, setOpeningBalance } = useStore();
-  const [text, setText] = useState(settings.openingCents === 0 ? '' : centsToInput(settings.openingCents));
+  const { accounts, updateAccount } = useStore();
+  // Asked after an import of an older backup, which has exactly one account.
+  const account = accounts[0];
+  const [text, setText] = useState(!account || account.openingCents === 0 ? '' : centsToInput(account.openingCents));
   const parsed = text.trim() === '' ? 0 : parseSignedAmount(text);
 
   async function save() {
-    if (parsed === null) return;
-    await setOpeningBalance(parsed);
+    if (parsed === null || !account) return;
+    await updateAccount(account.id, accountName(account), parsed);
     onClose();
   }
 

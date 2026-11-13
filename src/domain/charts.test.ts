@@ -5,6 +5,7 @@ import type { Category, LedgerData, Transaction, TxType } from './types';
 const cat = (id: string, type: TxType, name: string): Category => ({ id, type, name, lastUsedAt: 0 });
 const tx = (date: string, type: TxType, cents: number, categoryIds: string[], retired: string[] = []): Transaction => ({
   id: `${date}-${cents}-${categoryIds.join()}`,
+  accountId: 'a1',
   date,
   type,
   cents,

@@ -103,14 +103,15 @@ test.describe('Categories and settings', () => {
     await expect(page.getByRole('button', { name: /^Fitness/ })).toBeVisible();
   });
 
-  test('saving the opening balance confirms', async ({ page }) => {
+  test('saving an account confirms', async ({ page }) => {
     await startFresh(page);
     await page.getByRole('button', { name: 'Settings' }).click();
-    await page.getByRole('button', { name: /^Opening balance/ }).click();
-    await page.getByRole('dialog').getByRole('textbox').fill('100');
+    await page.getByRole('button', { name: /^Accounts/ }).click();
+    await page.getByRole('button', { name: /^Main account/ }).click();
+    await page.getByRole('dialog').getByLabel('Opening balance (€)').fill('100');
     await page.getByRole('dialog').getByRole('button', { name: 'Save' }).click();
 
-    await expect(toast(page, 'Opening balance saved')).toBeVisible();
+    await expect(toast(page, 'Account “Main account” saved')).toBeVisible();
   });
 
   test('erasing all data confirms, even though the app returns to the first screen', async ({ page }) => {
@@ -201,22 +202,24 @@ test.describe('how toasts behave', () => {
   test('a plain toast goes away by itself after a few seconds', async ({ page }) => {
     await startFresh(page);
     await page.getByRole('button', { name: 'Settings' }).click();
-    await page.getByRole('button', { name: /^Opening balance/ }).click();
-    await page.getByRole('dialog').getByRole('textbox').fill('5');
+    await page.getByRole('button', { name: /^Accounts/ }).click();
+    await page.getByRole('button', { name: /^Main account/ }).click();
+    await page.getByRole('dialog').getByLabel('Opening balance (€)').fill('5');
     await page.getByRole('dialog').getByRole('button', { name: 'Save' }).click();
 
-    await expect(toast(page, 'Opening balance saved')).toBeVisible();
-    await expect(toast(page, 'Opening balance saved')).toBeHidden({ timeout: 6000 });
+    await expect(toast(page, 'Account “Main account” saved')).toBeVisible();
+    await expect(toast(page, 'Account “Main account” saved')).toBeHidden({ timeout: 6000 });
   });
 
   test('holding the pointer over a toast keeps it, and it goes when you move away', async ({ page }) => {
     await startFresh(page);
     await page.getByRole('button', { name: 'Settings' }).click();
-    await page.getByRole('button', { name: /^Opening balance/ }).click();
-    await page.getByRole('dialog').getByRole('textbox').fill('5');
+    await page.getByRole('button', { name: /^Accounts/ }).click();
+    await page.getByRole('button', { name: /^Main account/ }).click();
+    await page.getByRole('dialog').getByLabel('Opening balance (€)').fill('5');
     await page.getByRole('dialog').getByRole('button', { name: 'Save' }).click();
 
-    const saved = toast(page, 'Opening balance saved');
+    const saved = toast(page, 'Account “Main account” saved');
     await saved.hover();
     await page.waitForTimeout(4000); // longer than the normal 3 seconds
     await expect(saved).toBeVisible();

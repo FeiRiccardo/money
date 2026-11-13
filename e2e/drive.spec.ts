@@ -43,12 +43,16 @@ function notesInDrive(drive: ReturnType<typeof createFakeDrive>): string {
 
 function backupWith(note: string): Uint8Array {
   const category = { id: 'c1', type: 'expense' as const, name: 'Groceries', defaultKey: 'groceries', lastUsedAt: 1 };
-  const transaction = { id: 't1', date: '2026-10-01', type: 'expense' as const, cents: 1250, categoryIds: ['c1'], retired: [], note };
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const account = { id: 'a1', name: 'Main account', defaultKey: 'main', openingCents: 0 };
+  const transaction = { id: 't1', accountId: 'a1', date: today, type: 'expense' as const, cents: 1250, categoryIds: ['c1'], retired: [], note };
   return exportArchive(
     {
       data: { categories: [category], transactions: [transaction] },
       rules: [],
-      settings: { language: 'en', openingCents: 0, sortOrder: 'newest' },
+      accounts: [account],
+      settings: { language: 'en', sortOrder: 'newest' },
       attachments: new Map(),
     },
     (c) => c.name,

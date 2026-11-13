@@ -1,11 +1,12 @@
 import { strToU8, zipSync } from 'fflate';
 import { describe, expect, it } from 'vitest';
 import { exportArchive, importArchive, type ArchiveContent } from './archive';
-import type { Category, LedgerData, Transaction, TxType } from './types';
+import type { Account, Category, LedgerData, Transaction, TxType } from './types';
 
 const cat = (id: string, type: TxType, name: string): Category => ({ id, type, name, lastUsedAt: 0 });
 const tx = (id: string, date: string, type: TxType, cents: number, categoryIds: string[], note = ''): Transaction => ({
   id,
+  accountId: 'a1',
   date,
   type,
   cents,
@@ -24,10 +25,12 @@ const data: LedgerData = {
     tx('t1', '2026-10-12', 'income', 180000, ['pay'], 'October'),
   ],
 };
-const settings = { language: 'it' as const, openingCents: -2500, sortOrder: 'largest' as const };
+const settings = { language: 'it' as const, sortOrder: 'largest' as const };
+const main: Account = { id: 'a1', name: 'Main account', defaultKey: 'main', openingCents: -2500 };
 const content = (over: Partial<ArchiveContent> = {}): ArchiveContent => ({
   data,
   rules: [],
+  accounts: [main],
   settings,
   attachments: new Map(),
   ...over,
@@ -46,6 +49,7 @@ describe('ZIP backup', () => {
   it('brings back the Transactions, Categories and recurring rules it was made from', () => {
     const rule = {
       id: 'r1',
+      accountId: 'a1',
       type: 'expense' as const,
       cents: 5000,
       categoryIds: ['food'],
@@ -70,7 +74,40 @@ describe('ZIP backup', () => {
     expect(preview.rules.map((r) => [r.note, r.frequency, r.nextDate])).toEqual([['Box', 'monthly', '2026-11-05']]);
   });
 
-  it('carries the settings: language, Opening balance and sort order', () => {
+  it('carries the Accounts with their Opening balances, and keeps each Transaction on its Account', () => {
+    const savings: Account = { id: 'a2', name: 'Savings, TFR', openingCents: 150050 };
+    const moved: LedgerData = { ...data, transactions: [data.transactions[0], { ...data.transactions[1], accountId: 'a2' }] };
+
+    const { preview } = roundTrip(content({ data: moved, accounts: [main, savings] }));
+
+    expect(preview.errors).toEqual([]);
+    expect(preview.accountsInFile).toBe(true);
+    expect(preview.accounts.map((a) => [a.name, a.openingCents, a.defaultKey])).toEqual([
+      ['Main account', -2500, 'main'],
+      ['Savings, TFR', 150050, undefined],
+    ]);
+    const nameOfAccount = new Map(preview.accounts.map((a) => [a.id, a.name]));
+    expect(preview.data.transactions.map((t) => [t.note, nameOfAccount.get(t.accountId)])).toEqual([
+      ['October', 'Savings, TFR'],
+      ['Shop, big', 'Main account'],
+    ]);
+  });
+
+  it('reads a ZIP from before Accounts: everything goes on one Main account, and the old Opening balance comes through the settings', () => {
+    const old = exportArchive({ ...content({ accounts: [] }), settings: { language: 'it', openingCents: 777, sortOrder: 'newest' } as never }, nameOf);
+
+    const result = importArchive(old, newId);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.preview.accountsInFile).toBe(false);
+    expect(result.preview.accounts).toHaveLength(1);
+    expect(result.preview.accounts[0]).toMatchObject({ name: 'Main account', defaultKey: 'main', openingCents: 0 });
+    expect(result.preview.data.transactions.every((t) => t.accountId === result.preview.accounts[0].id)).toBe(true);
+    expect(result.settings.openingCents).toBe(777);
+  });
+
+  it('carries the settings: language and sort order', () => {
     expect(roundTrip(content()).settings).toEqual(settings);
   });
 

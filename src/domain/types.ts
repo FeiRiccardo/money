@@ -18,8 +18,23 @@ export interface Category {
   uncounted?: boolean;
 }
 
+/** A place money is kept: the main account, a savings account, the TFR. Each has its own Opening balance. */
+export interface Account {
+  id: string;
+  /** Fallback/English name. Display uses `defaultKey` translation while it is set. */
+  name: string;
+  /** Set only while the Account is the still-translatable starter one ("Main account"). */
+  defaultKey?: string;
+  /** What it held before recording Transactions; may be negative. */
+  openingCents: number;
+}
+
 export interface Transaction {
   id: string;
+  /** The Account it belongs to. */
+  accountId: string;
+  /** Set on both halves of a Transfer: the two Transactions that share it move money between Accounts. */
+  transferId?: string;
   /** Calendar date, YYYY-MM-DD, no time of day. */
   date: string;
   type: TxType;
@@ -39,6 +54,7 @@ export interface Transaction {
 /** A schedule that creates Transactions automatically when the app opens. */
 export interface RecurringRule {
   id: string;
+  accountId: string;
   type: TxType;
   cents: number;
   categoryIds: string[];
@@ -72,7 +88,6 @@ export interface LedgerData {
 
 export interface Settings {
   language: Language;
-  openingCents: number;
   /** False/absent means the database is empty and the first-run screen is shown. */
   onboarded: boolean;
   lastBackupAt: number | null;
@@ -98,7 +113,6 @@ export interface DriveFile {
 
 export const DEFAULT_SETTINGS: Settings = {
   language: 'en',
-  openingCents: 0,
   onboarded: false,
   lastBackupAt: null,
   changesSinceBackup: 0,
@@ -110,6 +124,10 @@ export const DEFAULT_SETTINGS: Settings = {
   driveFile: null,
   driveSavedAt: null,
 };
+
+/** The Account a new database starts with, and the one data from before Accounts is moved into. */
+export const MAIN_ACCOUNT_KEY = 'main';
+export const MAIN_ACCOUNT_NAME = 'Main account';
 
 /** Starter Categories. `key` is stored as `defaultKey` and translated at display. */
 export const STARTER_CATEGORIES: ReadonlyArray<{ type: TxType; key: string; name: string }> = [

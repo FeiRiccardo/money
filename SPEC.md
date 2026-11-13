@@ -21,7 +21,7 @@ This spec is compiled from the Wayfinder map in `.wayfinder/`. Every section nam
 **Out of scope for v1**
 - Sync, accounts (an optional Google Drive backup came later, see [section 14](#14-google-drive-backup)), bank connections, receipt scanning or OCR.
 - Budgets.
-- Multiple accounts or wallets, multiple Currencies, shared or household use.
+- Multiple Currencies, shared or household use. (Several Accounts came later, see [section 18](#18-accounts-and-transfers).)
 - Sub-categories and merging Categories.
 - Merge-style import.
 
@@ -112,7 +112,7 @@ The home screen is **variant A, Ledger list**. A runnable reference lives at `.w
 Opened by the gear icon; a back arrow returns home. One scrolling screen of grouped rows, in this order:
 
 1. **Language:** English or Italian, English by default. Applies immediately with no reload, including translatable default Category names. Dates and numbers follow the language's formatting. A device setting: not in the backup, unchanged by an import.
-2. **Opening balance:** one amount edited through a small dialog; negative values allowed, at most 2 decimals, both `,` and `.` accepted, default 0.00. Changing it updates the Balance immediately. No date, no history.
+2. **Opening balance** (since section 18 this row is the Accounts screen, where each Account has its own): one amount edited through a small dialog; negative values allowed, at most 2 decimals, both `,` and `.` accepted, default 0.00. Changing it updates the Balance immediately. No date, no history.
 3. **Categories:** opens the Categories screen.
 4. **Backup:** Export, Import, last-backed-up date, and a reminder that the Opening balance is not in the files.
 5. **Storage and install:** storage status ("protected" or "not guaranteed", with one line of explanation) and an "Install app" row on Android and desktop.
@@ -353,3 +353,15 @@ Some money leaves (or comes in) without being spending (or earning): moving it t
 - **Deleting it.** Its name becomes a Retired label as usual, and a Retired label always counts, so these Transactions count in the summary again. The delete confirmation says so when the Category is used.
 - **Backups** keep the flag (`not_counted` in `categories.csv`, section 6), so it survives the CSV export, the Full backup and Google Drive.
 
+## 18. Accounts and Transfers
+
+More than one place for money: a main account, savings, the TFR. See `CONTEXT.md` (Account, Transfer).
+
+- **Accounts.** An Account has a name (not empty, at most 30 characters, no `|`, unique case-insensitively) and its own **Opening balance** (may be negative). A new database starts with one "Main account" (translated until renamed) holding the Opening balance asked on first run. There is always at least one Account. Categories, Recurring rules' Categories and settings are shared.
+- **Existing data.** Opening a database from before Accounts (schema version 4 adds the `accounts` store) moves every Transaction and rule into one "Main account", which takes over the old Opening balance setting; the setting is removed.
+- **Managing them.** Settings has an **Accounts** row (and the wide-screen menu an Accounts entry). The screen lists each Account with its Balance, plus a Total when there is more than one; a row opens a dialog to rename it, change its Opening balance, or delete it (not the last one). **Delete** removes the Account with its Transactions and rules and says how many; the other half of any Transfer stays on the other Account as an ordinary Transaction carrying the Retired label "Transfer"; a toast offers Undo that restores everything.
+- **Choosing what to look at.** With more than one Account the home screen shows a row of buttons: **All accounts** and one per Account. The choice sets the Balance, the Transaction list, the Summary, the Charts and the monthly report (which names the Account, or "All accounts", on screen and in the PDF). The Balance of "All accounts" is every Opening balance plus every Transaction. Search always covers every Account. The choice is not remembered between sessions, and if the chosen Account is deleted the screens show all of them.
+- **Entering.** The Transaction form has an **Account** select when there is more than one Account. A new Transaction goes to the chosen Account, else to the Account of the most recent Transaction. A Duplicate keeps the Account; a recurring rule keeps the Account of its first Transaction and creates its Transactions there. In the list each row names its Account when the list mixes Accounts.
+- **Transfers.** With at least two Accounts the form header offers **Transfer** next to Expense and Income. The Transfer form has an amount, **From** and **To** Accounts (they must differ), a date and a note, no Categories. It saves two Transactions sharing a `transferId`: an Expense on the source and an Income on the destination. A row of a Transfer shows "To <Account>" or "From <Account>" with a ⇄ mark and a "Transfer" tag; tapping it opens the Transfer form, where editing changes both halves and Delete removes both (with Undo). Transfers change each Account's Balance and the day totals but are **not** in the month's Income, Expenses, Net, the Category lines, the "Not counted" list, the Charts or the report totals; the report still lists them, marked "Transfer". They cannot be turned into a recurring rule.
+- **Backups.** `transactions.csv` gains `account` (the Account's name) and `transfer` (the same number on both halves of a Transfer, blank otherwise); `recurring.csv` gains `account`; a new `accounts.csv` (`name`, `opening_balance`, `default_key`) is written with the ZIP and the CSV export, and its Opening balances come back with an import. A Transfer row may have no Category. On import a pair is accepted only as one Expense and one Income of the same amount on different Accounts; other rows with a transfer number are skipped and listed. Files from before Accounts (no `account` column, no `accounts.csv`) are still read: everything goes on one "Main account"; the old ZIP's `settings.json` supplies its Opening balance, a CSV-only backup has none, so the "Check your opening balance" step is shown for that Account. A name in `account` that `accounts.csv` does not list creates an Account with Opening balance 0; a row naming none goes to the first Account.
+- **Not done.** Per-Account Categories, per-Account recurring Transfers, a Transfer between currencies.

@@ -2,17 +2,26 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Language } from '../domain/types';
 import { DriveSection } from './DriveSection';
-import { dateTimeLabel, formatMoney } from './format';
+import { dateTimeLabel } from './format';
 import { ImportFlow } from './ImportFlow';
-import { OpeningBalanceDialog } from './OpeningBalanceDialog';
 import { canPromptInstall, isIos, isPersisted, isStandalone, promptInstall } from './platform';
 import { useStore } from './store';
 import { Dialog } from './ui';
 import { APP_VERSION } from './version';
 
-type Overlay = null | 'opening' | 'import' | 'erase';
+type Overlay = null | 'import' | 'erase';
 
-export function SettingsScreen({ onBack, onCategories, onRecurring }: { onBack: () => void; onCategories: () => void; onRecurring: () => void }) {
+export function SettingsScreen({
+  onBack,
+  onAccounts,
+  onCategories,
+  onRecurring,
+}: {
+  onBack: () => void;
+  onAccounts: () => void;
+  onCategories: () => void;
+  onRecurring: () => void;
+}) {
   const { t } = useTranslation();
   const store = useStore();
   const { settings, language } = store;
@@ -49,11 +58,12 @@ export function SettingsScreen({ onBack, onCategories, onRecurring }: { onBack: 
         </section>
 
         <section>
-          <button className="list-row" onClick={() => setOverlay('opening')}>
-            <span>{t('settings.openingBalance')}</span>
-            <span className="muted" data-testid="opening-value">
-              {formatMoney(settings.openingCents, language)}
+          <button className="list-row" onClick={onAccounts}>
+            <span>
+              {t('settings.accounts')}
+              <small className="muted block">{t('settings.accountsHelp')}</small>
             </span>
+            <span className="muted">›</span>
           </button>
           <button className="list-row" onClick={onCategories}>
             <span>{t('settings.categories')}</span>
@@ -134,13 +144,6 @@ export function SettingsScreen({ onBack, onCategories, onRecurring }: { onBack: 
         </footer>
       </div>
 
-      {overlay === 'opening' && (
-        <OpeningBalanceDialog
-          title={t('settings.openingBalanceTitle')}
-          body={t('settings.openingBalanceHelp')}
-          onClose={() => setOverlay(null)}
-        />
-      )}
       {overlay === 'import' && <ImportFlow onClose={() => setOverlay(null)} />}
       {overlay === 'erase' && (
         <Dialog title={t('settings.eraseTitle')} onClose={() => setOverlay(null)}>
